@@ -39,7 +39,6 @@ jobs:
           test -d native-build/Environmental-Studies-v2.0.0-native
           cd native-build/Environmental-Studies-v2.0.0-native
           patch -p1 < ../../ci/indus-hold.patch
-          cp ../../overlay/v2.1/app/build.gradle.kts app/build.gradle.kts
           cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt
           cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt
           cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt
@@ -55,8 +54,14 @@ jobs:
           ! grep -R -n -E 'android\.webkit\.WebView|WebView\(' app/src/main/java
           ! find app/src/main -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -print -quit | grep -q .
           grep -q 'edu.gascnagercoil.environmentalsciences' app/build.gradle.kts
-          grep -q 'versionName = "2.1.0"' app/build.gradle.kts
-          grep -q 'versionCode = 20100' app/build.gradle.kts
+
+      - name: Apply v2.1 build identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp overlay/v2.1/app/build.gradle.kts native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
+          grep -q 'versionName = "2.1.0"' native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
+          grep -q 'versionCode = 20100' native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
 
       - name: Verify public Privacy Policy URL
         shell: bash
