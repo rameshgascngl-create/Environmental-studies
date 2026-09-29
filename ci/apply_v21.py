@@ -155,6 +155,18 @@ app = replace_between(app, '@Composable\nprivate fun UnitOpeningScreen', '@Compo
 app = replace_once(app, 'Text("${lesson.number} ${lesson.titleEn}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)\n                Text(lesson.titleTa, style = MaterialTheme.typography.titleLarge)', 'Text("${lesson.number} ${if (mode == LanguageMode.TAMIL) lesson.titleTa else lesson.titleEn}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)', "lesson title")
 app = replace_once(app, 'if (mode != LanguageMode.TAMIL) {', 'if (mode == LanguageMode.ENGLISH) {', "english section")
 app = replace_once(app, 'if (mode != LanguageMode.ENGLISH) {', 'if (mode == LanguageMode.TAMIL) {', "tamil section")
+app = replace_once(
+    app,
+    'val englishBlocks = if (visualFocus) lesson.english.filter { it.kind == "figure" } else lesson.english\n    val tamilBlocks = if (visualFocus) lesson.tamil.filter { it.kind == "figure" } else lesson.tamil',
+    'val englishConceptBlocks = lesson.english.filterNot { it.kind == "learning_outcome" }\n    val tamilConceptBlocks = lesson.tamil.filterNot { it.kind == "learning_outcome" }\n    val englishBlocks = if (visualFocus) englishConceptBlocks.filter { it.kind == "figure" } else englishConceptBlocks\n    val tamilBlocks = if (visualFocus) tamilConceptBlocks.filter { it.kind == "figure" } else tamilConceptBlocks',
+    "concept-only lesson blocks",
+)
+app = replace_once(
+    app,
+    'if (mode == LanguageMode.ENGLISH) {\n                item { SectionLabel("English") }\n                items(englishBlocks) { NativeBlock(it) }\n            }\n            if (mode == LanguageMode.TAMIL) {\n                item { SectionLabel("தமிழ்") }\n                items(tamilBlocks) { NativeBlock(it) }\n            }',
+    'if (mode == LanguageMode.ENGLISH) {\n                items(englishBlocks) { NativeBlock(it) }\n            }\n            if (mode == LanguageMode.TAMIL) {\n                items(tamilBlocks) { NativeBlock(it) }\n            }',
+    "remove redundant language headings",
+)
 lang_selector = '''@Composable
 private fun LanguageSelector(mode: LanguageMode, onMode: (LanguageMode) -> Unit) {
     CompactLanguageSwitch(mode = mode, onMode = onMode)
@@ -170,4 +182,15 @@ if 'import edu.gascnagercoil.environmentalsciences.model.LanguageMode' not in si
 sim = replace_once(sim, 'fun SimulationScreen() {', 'fun SimulationScreen(language: LanguageMode) {', "simulation signature")
 sim = replace_once(sim, '        item { GreenhouseCard() }', '        item { ClimateEventsCard(language) }\n        item { GreenhouseCard() }', "climate event insertion")
 sim_path.write_text(sim, encoding="utf-8")
+
+pdf_path = ROOT / "PdfExporter.kt"
+pdf = pdf_path.read_text(encoding="utf-8")
+pdf = replace_once(
+    pdf,
+    '            if (mode != LanguageMode.TAMIL) {\n                drawWrapped("English", subheading)\n                lesson.english.forEach(::drawBlock)\n            }\n            if (mode != LanguageMode.ENGLISH) {\n                drawWrapped("தமிழ்", subheading)\n                lesson.tamil.forEach(::drawBlock)\n            }',
+    '            if (mode == LanguageMode.ENGLISH) {\n                lesson.english.filterNot { it.kind == "learning_outcome" }.forEach(::drawBlock)\n            }\n            if (mode == LanguageMode.TAMIL) {\n                lesson.tamil.filterNot { it.kind == "learning_outcome" }.forEach(::drawBlock)\n            }',
+    "concept-only PDF blocks",
+)
+pdf_path.write_text(pdf, encoding="utf-8")
+
 print("v2.1 UI integration applied")
