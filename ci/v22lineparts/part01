@@ -1,0 +1,71 @@
+    labs=[avoid,efficient,reuse,rain,monitor]
+    fills=['#FFEBEE','#FFF3E0','#E3F2FD','#E0F2F1','#E8F5E9']
+    for (x,y),lab,fill in zip(coords,labs,fills):
+        s+=box(x,y,220,105,lab,fill,'small')
+    s+=arrow(310,172,390,172)+arrow(610,172,690,172)
+    s+=arrow(800,225,650,350)+arrow(460,402,540,402)
+    return s+footer()
+
+def diagram_campus(labels):
+    campus,*nodes=labels
+    s=svg_head(campus)+title(campus)
+    s+=f'<circle cx="500" cy="320" r="110" fill="#E8F5E9" stroke="{INK}" stroke-width="4"/>\n'+text(500,330,campus,'t')
+    coords=[(500,105),(170,245),(830,245),(260,515),(740,515)]
+    fills=['#FFF3E0','#E3F2FD','#FFEBEE','#E0F2F1','#F3E5F5']
+    for (x,y),lab,fill in zip(coords,nodes,fills):
+        s+=box(x-120,y-40,240,80,lab,fill,'small')
+        s+=line(x,y+(40 if y<320 else -40),500+(0 if x==500 else (-110 if x>500 else 110)),320+( -100 if y<320 else 100))
+    return s+footer()
+
+
+def diagram_cycle(title_text, labels):
+    s=svg_head(title_text)+title(title_text)
+    coords=[(500,120),(790,260),(680,500),(320,500),(210,260)]
+    fills=['#E3F2FD','#E8F5E9','#FFF3E0','#E0F2F1','#F3E5F5']
+    for i,(x,y) in enumerate(coords):
+        s+=box(x-120,y-40,240,80,labels[i],fills[i],'small')
+        nx,ny=coords[(i+1)%len(coords)]
+        s+=arrow(x+(70 if nx>x else -70 if nx<x else 0),y+(30 if ny>y else -30 if ny<y else 0),nx+(-70 if nx>x else 70 if nx<x else 0),ny+(-30 if ny>y else 30 if ny<y else 0))
+    return s+footer()
+
+
+def diagram_timeline(title_text, entries):
+    s=svg_head(title_text)+title(title_text)
+    s+=line(100,300,900,300)
+    xs=[130,315,500,685,870]
+    for x,(year,label),fill in zip(xs,entries,['#E3F2FD','#E8F5E9','#FFF3E0','#F3E5F5','#E0F2F1']):
+        s+=f'<circle cx="{x}" cy="300" r="16" fill="{PRIMARY}"/>\n'
+        s+=text(x,245,year,'t')
+        s+=box(x-82,345,164,90,label,fill,'small')
+    return s+footer()
+
+def diagram_audit(title_text, labels):
+    s=svg_head(title_text)+title(title_text)
+    top=[(70,170),(390,170),(710,170)]
+    fills=['#E3F2FD','#E8F5E9','#FFF3E0']
+    for (x,y),lab,fill in zip(top,labels[:3],fills):
+        s+=box(x,y,220,100,lab,fill,'small')
+    s+=arrow(290,220,390,220)+arrow(610,220,710,220)
+    s+=arrow(820,270,820,365)
+    s+=box(550,365,270,105,labels[3],'#E0F2F1','small')
+    s+=arrow(550,418,440,418)
+    s+=box(170,365,270,105,labels[4],'#F3E5F5','small')
+    return s+footer()
+
+visuals = {
+'v22_u01_l13_en': (diagram_population, ['Population','Consumption','Technology & governance','Resource demand','Waste & emissions','Environmental pressure','Ecosystem services']),
+'v22_u01_l13_ta': (diagram_population, ['மக்கள்தொகை','நுகர்வு','தொழில்நுட்பம் & நிர்வாகம்','வளத் தேவை','கழிவு & வெளியீடுகள்','சுற்றுச்சூழல் அழுத்தம்','சூழலியல் சேவைகள்']),
+'v22_u02_l26_en': (diagram_resources, ['Non-renewable resources','Minerals','Fossil fuels','Renewable biological resources','Food / biomass','Efficiency · reuse · recovery','Lower resource pressure']),
+'v22_u02_l26_ta': (diagram_resources, ['புதுப்பிக்க இயலாத வளங்கள்','கனிமங்கள்','புதைபடிவ எரிபொருட்கள்','புதுப்பிக்கத்தக்க உயிரியல் வளங்கள்','உணவு / உயிர்த்திணிவு','திறன் · மறுபயன்பாடு · மீட்பு','குறைந்த வள அழுத்தம்']),
+'v22_u03_l32_en': (diagram_biodiversity, ['Biodiversity','Land/sea-use change','Direct exploitation','Climate change','Pollution','Invasive alien species']),
+'v22_u03_l32_ta': (diagram_biodiversity, ['உயிரினப் பன்மை','நில/கடல் பயன்பாட்டு மாற்றம்','நேரடி சுரண்டல்','காலநிலை மாற்றம்','மாசுபாடு','ஆக்கிரமிப்பு அயல் இனங்கள்']),
+'v22_u04_l44_en': (diagram_soil, ['Industrial · farm · waste sources','Contaminated soil','Plant uptake','Groundwater leaching','Runoff / erosion','Food & drinking water','Ecosystem exposure']),
+'v22_u04_l44_ta': (diagram_soil, ['தொழில் · வேளாண்மை · கழிவு மூலங்கள்','மாசடைந்த மண்','தாவர உறிஞ்சல்','நிலத்தடி நீருக்கு கசிவு','மேற்பரப்பு ஓட்டம் / அரிப்பு','உணவு & குடிநீர்','சூழல் வெளிப்பாடு']),
+'v22_u04_l45_en': (diagram_noise, ['Noise sources','Propagation','Exposure: level · duration · timing','Sleep · learning · stress','Hearing / cardiovascular']),
+'v22_u04_l45_ta': (diagram_noise, ['ஒலி மூலங்கள்','ஒலி பரவல்','வெளிப்பாடு: அளவு · காலம் · நேரம்','தூக்கம் · கற்றல் · மன அழுத்தம்','கேள்வித்திறன் / இதயநலம்']),
+'v22_u04_l47_en': (diagram_waste, ['Plastic waste','E-waste','Biomedical waste','Segregate at source','Reuse / recycle','Authorised e-waste recovery','Safe biomedical treatment','Do not mix waste streams']),
+'v22_u04_l47_ta': (diagram_waste, ['நெகிழிக் கழிவு','மின்னணுக் கழிவு','உயிரி மருத்துவக் கழிவு','மூலத்திலேயே பிரித்தல்','மறுபயன்பாடு / மறுசுழற்சி','அங்கீகரிக்கப்பட்ட மின்னணுக் கழிவு மீட்பு','பாதுகாப்பான உயிரி மருத்துவ சிகிச்சை','கழிவு ஓட்டங்களை கலக்க வேண்டாம்']),
+'v22_u05_l52_en': (diagram_climate, ['Rising greenhouse gases','Global warming','Cryosphere loss','Sea-level rise','More heat extremes','Heavier rainfall risk','Impacts vary by region and vulnerability']),
+'v22_u05_l52_ta': (diagram_climate, ['பசுமை இல்ல வாயுக்கள் அதிகரிப்பு','உலக வெப்பமாதல்','பனிப்பகுதி இழப்பு','கடல் மட்ட உயர்வு','கடுமையான வெப்ப நிகழ்வுகள் அதிகரிப்பு','கனமழை அபாயம் அதிகரிப்பு','தாக்கம் பகுதி மற்றும் பாதிப்புணர்திறனைப் பொறுத்து மாறும்']),
+'v22_u05_l54_en': (diagram_ozone_acid, ['Ozone depletion','ODS','UV in stratosphere','Cl / Br released','Ozone destroyed','More UV-B','Acid deposition','SO₂ + NOₓ','Atmospheric reactions','Wet + dry deposition','Effects on water · soil · materials']),
+'v22_u05_l54_ta': (diagram_ozone_acid, ['ஓசோன் படலச் சிதைவு','ஓசோன் சிதைக்கும் பொருட்கள்','மேல்வளிமண்டல UV','Cl / Br வெளியீடு','ஓசோன் அழிவு','அதிக UV-B','அமிலத் திணிவு','SO₂ + NOₓ','வளிமண்டல வினைகள்','ஈர + உலர் திணிவு','நீர் · மண் · பொருட்கள் பாதிப்பு']),
