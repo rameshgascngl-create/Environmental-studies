@@ -45,6 +45,18 @@ jobs:
           python ../../ci/apply_v21.py
           cp ../../site/privacy-policy.html site/privacy-policy.html
 
+      - name: Inspect lesson content model
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          echo "=== BLOCK MODEL ==="
+          grep -R -n -E 'data class .*Block|sealed (class|interface).*Block|class .*Block' app/src/main/java/edu/gascnagercoil/environmentalsciences | head -80 || true
+          echo "=== LESSON SCREEN ==="
+          grep -n -A90 -B15 'private fun LessonScreen' app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt || true
+          echo "=== OBJECTIVE PHRASES ==="
+          grep -R -n -E 'By the end of this lesson|Learning Objectives|கற்றல் நோக்க|பாடத்தின் முடிவில்' app/src/main | head -80 || true
+
       - name: Verify pure-native source contract
         shell: bash
         working-directory: native-build/Environmental-Studies-v2.0.0-native
