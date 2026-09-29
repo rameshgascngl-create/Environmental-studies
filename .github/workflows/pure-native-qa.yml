@@ -43,7 +43,7 @@ jobs:
           cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt
           cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt
           cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt
-          patch -p1 < ../../ci/v2.1-ui-integration.patch
+          python ../../ci/apply_v21.py
           cp ../../site/privacy-policy.html site/privacy-policy.html
 
       - name: Verify pure-native source contract
