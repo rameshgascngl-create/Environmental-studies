@@ -225,3 +225,18 @@
 +<p><small>Android package: edu.gascnagercoil.environmentalsciences</small></p>
  </body>
  </html>
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -73,7 +73,11 @@
+         sourceCompatibility = JavaVersion.VERSION_17
+         targetCompatibility = JavaVersion.VERSION_17
+     }
+-    kotlinOptions { jvmTarget = "17" }
++    kotlin {
++        compilerOptions {
++            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
++        }
++    }
+ }
+ 
+ dependencies {
