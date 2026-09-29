@@ -1,0 +1,40 @@
+@Composable
+private fun SvgZoomDialog(resId: Int, dismiss: () -> Unit) {
+    Dialog(onDismissRequest = dismiss) {
+        Surface(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f), shape = MaterialTheme.shapes.large) {
+            var scale by remember { mutableFloatStateOf(1f) }
+            var offsetX by remember { mutableFloatStateOf(0f) }
+            var offsetY by remember { mutableFloatStateOf(0f) }
+            Box(Modifier.fillMaxSize()) {
+                SvgResource(
+                    resId = resId,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp)
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                offsetX += pan.x
+                                offsetY += pan.y
+                            }
+                        }
+                        .graphicsLayer(scaleX = scale, scaleY = scale, translationX = offsetX, translationY = offsetY)
+                )
+                TextButton(onClick = dismiss, modifier = Modifier.align(androidx.compose.ui.Alignment.TopEnd).padding(8.dp)) { Text("Close") }
+            }
+        }
+    }
+}
+'''
+(JAVA/'SvgFigureBlock.kt').write_text(svg_renderer,encoding='utf-8')
+
+# Add academically necessary SVG blocks after the core explanation of selected lessons.
+book=json.loads(BOOK.read_text(encoding='utf-8'))
+insertions={
+'1.3':('v22_u01_l13_en','v22_u01_l13_ta','Population, consumption and environmental pressure','மக்கள்தொகை, நுகர்வு மற்றும் சுற்றுச்சூழல் அழுத்தம்','Environmental pressure depends on population, per-capita consumption, technology and governance rather than population size alone.','சுற்றுச்சூழல் அழுத்தம் மக்கள்தொகை எண்ணிக்கையால் மட்டும் அல்ல; ஒருவருக்கான நுகர்வு, தொழில்நுட்பம் மற்றும் நிர்வாகத்தாலும் நிர்ணயிக்கப்படுகிறது.'),
+'2.6':('v22_u02_l26_en','v22_u02_l26_ta','Resource types and resource efficiency','வள வகைகளும் வளத் திறனும்','Finite geological resources and renewable biological resources require different management, while efficiency and reuse reduce pressure on both.','வரையறுக்கப்பட்ட புவியியல் வளங்களும் புதுப்பிக்கத்தக்க உயிரியல் வளங்களும் வேறுபட்ட மேலாண்மையை தேவைப்படுத்துகின்றன; திறனும் மறுபயன்பாடும் வள அழுத்தத்தை குறைக்கின்றன.'),
+'3.2':('v22_u03_l32_en','v22_u03_l32_ta','Major direct drivers of biodiversity loss','உயிரினப் பன்மை இழப்பின் முக்கிய நேரடி இயக்கிகள்','The five major global direct drivers are land/sea-use change, direct exploitation, climate change, pollution and invasive alien species.','உலகளவில் முக்கியமான ஐந்து நேரடி இயக்கிகள்: நில/கடல் பயன்பாட்டு மாற்றம், நேரடி சுரண்டல், காலநிலை மாற்றம், மாசுபாடு மற்றும் ஆக்கிரமிப்பு அயல் இனங்கள்.'),
+'4.4':('v22_u04_l44_en','v22_u04_l44_ta','How soil contamination reaches organisms and water','மண் மாசுபாடு உயிரினங்களையும் நீரையும் எவ்வாறு அடைகிறது','Soil contaminants may remain in soil, move with runoff, leach to groundwater or enter organisms through uptake and food chains.','மண் மாசுபடுத்திகள் மண்ணில் நிலைத்திருக்கலாம்; மேற்பரப்பு ஓட்டத்துடன் நகரலாம்; நிலத்தடி நீருக்குள் கசியலாம்; தாவர உறிஞ்சல் மற்றும் உணவுச் சங்கிலி வழியாக உயிரினங்களை அடையலாம்.'),
+'4.5':('v22_u04_l45_en','v22_u04_l45_ta','From noise source to health effect','ஒலி மூலத்திலிருந்து உடல்நல விளைவுக்கு','Health impact depends on source, propagation, sound level, duration, timing and individual vulnerability.','உடல்நல விளைவு ஒலி மூலம், பரவல், ஒலி அளவு, வெளிப்பாட்டு காலம், நேரம் மற்றும் தனிநபர் பாதிப்புணர்திறனைப் பொறுத்தது.'),
+'4.7':('v22_u04_l47_en','v22_u04_l47_ta','Different waste streams need different handling','வேறுபட்ட கழிவு ஓட்டங்களுக்கு வேறுபட்ட கையாளல்','Plastic, e-waste and biomedical waste should be segregated because their recovery, hazard and treatment requirements differ.','நெகிழிக் கழிவு, மின்னணுக் கழிவு மற்றும் உயிரி மருத்துவக் கழிவுகளின் மீட்பு, அபாயம் மற்றும் சிகிச்சை தேவைகள் வேறுபடும்; எனவே அவை தனித்தனியாகப் பிரிக்கப்பட வேண்டும்.'),
+'5.2':('v22_u05_l52_en','v22_u05_l52_ta','Climate change: evidence and impact pathways','காலநிலை மாற்றம்: ஆதாரங்களும் தாக்கப் பாதைகளும்','Rising greenhouse-gas concentrations warm the climate system and are linked with observed changes in temperature, cryosphere and sea level, with impacts varying by region and vulnerability.','பசுமை இல்ல வாயுக்கள் அதிகரிப்பதால் காலநிலை அமைப்பு வெப்பமடைகிறது; வெப்பநிலை, பனிப்பகுதி மற்றும் கடல் மட்டத்தில் காணப்படும் மாற்றங்களுடன் இது தொடர்புடையது; தாக்கங்கள் பகுதி மற்றும் பாதிப்புணர்திறனைப் பொறுத்து மாறுகின்றன.'),
