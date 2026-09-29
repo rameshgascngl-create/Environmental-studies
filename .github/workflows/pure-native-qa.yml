@@ -1,0 +1,128 @@
+name: Environmental Studies Pure Native QA
+
+on:
+  push:
+    branches:
+      - build/native-v2.0.0-indus-qa-20260929
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-native-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
+      SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/build/native-v2.0.0-indus-qa-20260929/site/privacy-policy.html
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify native source archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$SOURCE_ZIP"
+          echo "$SOURCE_SHA256  $SOURCE_ZIP" | sha256sum -c -
+
+      - name: Expand source and apply Indus hold corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf native-build
+          mkdir native-build
+          unzip -q "$SOURCE_ZIP" -d native-build
+          test -d native-build/Environmental-Studies-v2.0.0-native
+          cd native-build/Environmental-Studies-v2.0.0-native
+          patch -p1 < ../../ci/indus-hold.patch
+          cp ../../site/privacy-policy.html site/privacy-policy.html
+
+      - name: Verify pure-native source contract
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          python tools/check_source_gate.py .
+          ! grep -R -n -E 'android\.webkit\.WebView|WebView\(' app/src/main/java
+          ! find app/src/main -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -print -quit | grep -q .
+          grep -q 'edu.gascnagercoil.environmentalsciences' app/build.gradle.kts
+          grep -q 'versionName = "2.0.0"' app/build.gradle.kts
+          grep -q 'versionCode = 20000' app/build.gradle.kts
+
+      - name: Verify public Privacy Policy URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$PRIVACY_URL" in
+            https://*) ;;
+            *) echo "Privacy URL must use HTTPS" >&2; exit 2 ;;
+          esac
+          curl -fLsS --retry 3 "$PRIVACY_URL" | grep -q 'Environmental Studies'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'platform-tools'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Clean, lint, test and assemble pure native APK
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          gradle --no-daemon clean :app:lintDebug :app:testDebugUnitTest :app:assembleDebug             -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+
+      - name: Inspect APK identity and offline contract
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -n "$APK" && test -f "$APK"
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging "$APK" | tee qa-badging.txt
+          "$AAPT" dump permissions "$APK" | tee qa-permissions.txt
+          grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging.txt
+          grep -q "versionCode='20000'" qa-badging.txt
+          grep -q "versionName='2.0.0-debug'" qa-badging.txt
+          ! grep -q 'android.permission.INTERNET' qa-permissions.txt
+          if zipinfo -1 "$APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
+            echo "Unexpected web payload in APK" >&2
+            exit 3
+          fi
+          {
+            echo "architecture=pure_native_android"
+            echo "ui=jetpack_compose"
+            echo "webview=absent"
+            echo "internet_permission=absent"
+            echo "application_id=edu.gascnagercoil.environmentalsciences.debug"
+            echo "version_name=2.0.0-debug"
+            echo "version_code=20000"
+            echo "privacy_policy=$PRIVACY_URL"
+            echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
+          } | tee qa-evidence.txt
+
+      - name: Prepare downloadable QA artifact
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          mkdir -p qa-artifact
+          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          cp "$APK" qa-artifact/Environmental-Studies-v2.0.0-PURE-NATIVE-DEVICE-QA.apk
+          cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.0.0-PURE-NATIVE-DEVICE-QA
+          path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
+          if-no-files-found: error
