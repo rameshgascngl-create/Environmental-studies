@@ -1,0 +1,18 @@
+    for lesson in u['lessons']:
+        spec=insertions.get(lesson['number'])
+        if not spec: continue
+        en_fig,ta_fig,en_title,ta_title,en_cap,ta_cap=spec
+        for lang,fig,title_text,cap in [('english',en_fig,en_title,en_cap),('tamil',ta_fig,ta_title,ta_cap)]:
+            blocks=lesson[lang]
+            # Idempotent: remove earlier copy if script reruns.
+            blocks[:]=[b for b in blocks if not (b.get('kind')=='svg_figure' and b.get('figure')==fig)]
+            block={'kind':'svg_figure','title':title_text,'text':'','items':[],'rows':[],'figure':fig,'caption':cap}
+            idx=next((i for i,b in enumerate(blocks) if b.get('kind') in ('explanation','explain')),1)
+            blocks.insert(idx+1,block)
+
+BOOK.write_text(json.dumps(book,ensure_ascii=False,indent=2),encoding='utf-8')
+
+manifest='''# Academic Visual Expansion — v2.2\n\nThis visual set is designed for concept teaching, not decoration. Existing PNG figures remain in place where they are already useful; new process diagrams are SVG so labels and arrows remain sharp when enlarged. Each new diagram has English and Tamil variants and is inserted directly into the relevant lesson after the core explanation.\n\n## Authoritative concept checks\n\n- Greenhouse effect and Earth energy balance: NASA Climate / Earth Observatory.\n- Water cycle, infiltration, runoff and groundwater recharge: U.S. Geological Survey Water Science School.\n- Nutrient pollution and eutrophication: U.S. Environmental Protection Agency.\n- Biodiversity direct drivers: IPBES Global Assessment / Convention on Biological Diversity.\n- Environmental noise pathways and health effects: World Health Organization.\n- Ozone depletion: U.S. EPA ozone-layer science and Montreal Protocol materials.\n- Acid deposition: U.S. EPA acid-rain and atmospheric-deposition guidance.\n- Disaster risk framing (existing course figures): UNDRR terminology on hazard, exposure and vulnerability.\n- Climate change evidence/impact framing: IPCC AR6 Synthesis Report.\n\n## New lesson-linked SVGs\n\n1.3 population-consumption-environment pressure; 2.6 resource types and efficiency; 3.2 biodiversity drivers; 4.4 soil-pollution pathways; 4.5 noise exposure pathway; 4.7 waste-stream segregation; 5.2 climate evidence and impact pathways; 5.4 ozone depletion versus acid deposition; 6.1 energy efficiency; 6.3 sustainable water-use hierarchy; 6.5 sustainable campus systems; 7.1 environmental-management cycle; 8.3 selected international agreements timeline; 9.3 waste-audit workflow; 9.4 water-use observation; 9.5 local environmental observation; 9.6 campus action-plan cycle.\n\nThe diagrams intentionally avoid unsupported numerical thresholds and prediction claims.\n'''
+(ROOT/'ACADEMIC_VISUALS_MANIFEST.md').write_text(manifest,encoding='utf-8')
+
+print(f'Added {len(visuals)} SVG resources and {len(insertions)*2} lesson figure blocks')
