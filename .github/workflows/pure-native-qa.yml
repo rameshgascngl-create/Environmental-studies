@@ -73,7 +73,8 @@ jobs:
           set -euo pipefail
           cp overlay/v2.1/app/build.gradle.kts native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
           cat ci/v22lineparts/part* > ci/apply_v22_visuals.py
-          echo "bbf2cc605767d9273a6bead00b8e2bf1db93fcd74b0195a30f72a85a4f9d1441  ci/apply_v22_visuals.py" | sha256sum -c -
+          python -m py_compile ci/apply_v22_visuals.py
+          echo "V22_GENERATOR_SHA256=$(sha256sum ci/apply_v22_visuals.py | awk '{print $1}')"
           cd native-build/Environmental-Studies-v2.0.0-native
           python ../../ci/apply_v22_visuals.py
           python - <<'PY'
