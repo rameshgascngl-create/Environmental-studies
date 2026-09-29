@@ -230,3 +230,10 @@
          }
 +        item { ClimateEventsCard(language) }
          item { GreenhouseCard() }
+
+--- a/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/SimulationScreen.kt
++++ b/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/SimulationScreen.kt
+@@
+ import androidx.compose.ui.unit.dp
++import edu.gascnagercoil.environmentalsciences.model.LanguageMode
+ import kotlin.math.ln
