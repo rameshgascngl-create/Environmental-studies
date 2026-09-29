@@ -1,0 +1,189 @@
+from pathlib import Path
+import json
+
+ROOT = Path('.')
+APP = ROOT / 'app'
+RAW = APP / 'src/main/res/raw'
+JAVA = APP / 'src/main/java/edu/gascnagercoil/environmentalsciences/ui'
+BUILD = APP / 'build.gradle.kts'
+BOOK = RAW / 'book_content.json'
+RAW.mkdir(parents=True, exist_ok=True)
+
+BG = '#F7FBF8'
+INK = '#17352E'
+PRIMARY = '#2E7D32'
+SECONDARY = '#1976D2'
+ACCENT = '#F9A825'
+RED = '#C62828'
+PURPLE = '#6A1B9A'
+TEAL = '#00897B'
+GRAY = '#607D8B'
+LIGHT = '#E8F5E9'
+BLUELIGHT = '#E3F2FD'
+WARNLIGHT = '#FFF3E0'
+
+
+def esc(s:str)->str:
+    return (s.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;'))
+
+
+def svg_head(title):
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 620" role="img" aria-label="{esc(title)}">
+<defs>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="{INK}"/></marker>
+  <style>
+    .t{{font-family:sans-serif;fill:{INK};font-size:42px;font-weight:700}}
+    .s{{font-family:sans-serif;fill:{INK};font-size:34px}}
+    .small{{font-family:sans-serif;fill:{INK};font-size:30px}}
+    .box{{rx:26;ry:26;stroke:{INK};stroke-width:3}}
+    .arr{{stroke:{INK};stroke-width:5;fill:none;marker-end:url(#arrow);stroke-linecap:round}}
+    .line{{stroke:{INK};stroke-width:4;fill:none;stroke-linecap:round}}
+  </style>
+</defs>
+<rect width="1000" height="620" fill="{BG}"/>
+'''
+
+
+def footer(): return '</svg>\n'
+
+def text(x,y,s,cls='s',anchor='middle'):
+    return f'<text x="{x}" y="{y}" text-anchor="{anchor}" class="{cls}">{esc(s)}</text>\n'
+
+def wrap_label(label, max_chars=18, max_lines=3):
+    words=label.split()
+    if not words: return ['']
+    lines=[]; cur=''
+    for word in words:
+        candidate=(cur+' '+word).strip()
+        if cur and len(candidate)>max_chars:
+            lines.append(cur); cur=word
+        else:
+            cur=candidate
+    if cur: lines.append(cur)
+    if len(lines)>max_lines:
+        lines=lines[:max_lines-1]+[' '.join(lines[max_lines-1:])]
+    return lines
+
+def box(x,y,w,h,label,fill=LIGHT,cls='s'):
+    lines=wrap_label(label, 19 if cls=='small' else 16, 3)
+    line_h=33 if cls=='small' else 37
+    start=y+h/2-(len(lines)-1)*line_h/2+10
+    out=f'<rect x="{x}" y="{y}" width="{w}" height="{h}" class="box" fill="{fill}"/>\n'
+    for i,ln in enumerate(lines):
+        out+=text(x+w/2,start+i*line_h,ln,cls)
+    return out
+
+def arrow(x1,y1,x2,y2): return f'<path d="M{x1} {y1} L{x2} {y2}" class="arr"/>\n'
+
+def line(x1,y1,x2,y2): return f'<path d="M{x1} {y1} L{x2} {y2}" class="line"/>\n'
+
+def title(s): return text(500,55,s,'t')
+
+
+def diagram_population(labels):
+    p,c,tg,rd,we,ep,es=labels
+    s=svg_head(ep)+title(ep)
+    s+=box(55,110,250,90,p,BLUELIGHT)+box(375,110,250,90,c,WARNLIGHT)+box(695,110,250,90,tg,'#F3E5F5','small')
+    s+=arrow(180,200,350,290)+arrow(500,200,500,290)+arrow(820,200,650,290)
+    s+=box(350,285,300,90,rd,LIGHT)
+    s+=arrow(500,375,500,425)+box(350,420,300,80,we,'#FFEBEE')
+    s+=line(170,535,170,400)+arrow(170,400,350,340)+text(175,510,es,'small','start')
+    return s+footer()
+
+
+def diagram_resources(labels):
+    nonr,minerals,fossil,renew,food,eff,pressure=labels
+    s=svg_head(pressure)+title(pressure)
+    s+=box(70,115,360,80,nonr,'#FFEBEE')+box(570,115,360,80,renew,LIGHT)
+    s+=box(85,245,150,75,minerals,'#FFF3E0','small')+box(265,245,150,75,fossil,'#FFF3E0','small')
+    s+=box(635,245,230,75,food,BLUELIGHT,'small')
+    s+=arrow(250,330,410,410)+arrow(750,330,590,410)
+    s+=box(350,395,300,85,eff,'#E0F2F1')
+    s+=arrow(500,480,500,535)+box(300,530,400,65,pressure,'#E8F5E9','small')
+    return s+footer()
+
+
+def diagram_biodiversity(labels):
+    center,*drivers=labels
+    s=svg_head(center)+title(center)
+    cx,cy=500,330
+    s+=f'<circle cx="{cx}" cy="{cy}" r="120" fill="#E8F5E9" stroke="{INK}" stroke-width="4"/>\n'+text(cx,cy+10,center,'t')
+    coords=[(500,110),(180,225),(820,225),(245,500),(755,500)]
+    fills=['#FFF3E0','#FFEBEE','#E3F2FD','#F3E5F5','#E0F2F1']
+    for (x,y),lab,fill in zip(coords,drivers,fills):
+        w=250; h=80
+        s+=box(x-w/2,y-h/2,w,h,lab,fill,'small')
+        s+=arrow(x if abs(x-cx)<10 else (x+(w/2 if x<cx else -w/2)), y+(h/2 if y<cy else -h/2), cx+(0 if abs(x-cx)<10 else (-120 if x>cx else 120)), cy+(-110 if y<cy else 110))
+    return s+footer()
+
+
+def diagram_soil(labels):
+    sources,soil,plant,gw,runoff,food,eco=labels
+    s=svg_head(soil)+title(soil)
+    s+=box(80,105,300,85,sources,'#FFEBEE','small')+arrow(230,190,400,265)
+    s+=box(320,245,360,90,soil,'#FFF3E0')
+    s+=arrow(410,335,230,430)+arrow(500,335,500,430)+arrow(590,335,770,430)
+    s+=box(70,420,280,105,plant+' → '+food,LIGHT,'small')
+    s+=box(360,420,280,105,gw,BLUELIGHT,'small')
+    s+=box(650,420,280,105,runoff+' → '+eco,'#E0F2F1','small')
+    return s+footer()
+
+def diagram_noise(labels):
+    sources,prop,exposure,effects1,effects2=labels
+    s=svg_head(sources)+title(sources)
+    s+=box(45,245,210,90,sources,'#FFF3E0','small')+arrow(255,290,325,290)
+    s+=box(325,245,220,90,prop,BLUELIGHT,'small')+arrow(545,290,615,290)
+    s+=box(615,230,300,120,exposure,'#E0F2F1','small')
+    s+=arrow(765,350,765,420)
+    s+=box(500,420,430,115,effects1+' · '+effects2,'#FFEBEE','small')
+    return s+footer()
+
+def diagram_waste(labels):
+    p,e,b,sep,pr,er,bt,note=labels
+    s=svg_head(sep)+title(sep)
+    s+=box(50,110,260,85,p,'#E3F2FD','small')+box(370,110,260,85,e,'#FFF3E0','small')+box(690,110,260,85,b,'#FFEBEE','small')
+    s+=arrow(180,195,300,300)+arrow(500,195,500,300)+arrow(820,195,700,300)
+    s+=box(300,280,400,90,sep,LIGHT)
+    s+=arrow(410,370,230,465)+arrow(500,370,500,465)+arrow(590,370,770,465)
+    s+=box(100,455,260,80,pr,'#E0F2F1','small')+box(370,455,260,80,er,'#E0F2F1','small')+box(640,455,260,80,bt,'#E0F2F1','small')
+    s+=text(500,590,note,'small')
+    return s+footer()
+
+
+def diagram_climate(labels):
+    ghg,warm,ice,sea,heat,rain,eco=labels
+    s=svg_head(warm)+title(warm)
+    s+=box(335,85,330,80,ghg,'#FFF3E0')+arrow(500,165,500,225)+box(335,215,330,80,warm,'#FFEBEE')
+    s+=arrow(500,295,300,380)+arrow(500,295,700,380)
+    s+=box(90,365,300,80,ice,BLUELIGHT,'small')+box(610,365,300,80,sea,BLUELIGHT,'small')
+    s+=arrow(300,445,300,505)+arrow(700,445,700,505)
+    s+=box(90,500,300,80,heat,WARNLIGHT,'small')+box(610,500,300,80,rain,'#E3F2FD','small')
+    return s+footer()
+
+def diagram_ozone_acid(labels):
+    ozone_title,ods,uv,halogen,ozone,uvb,acid_title,so2nox,react,dep,effects=labels
+    s=svg_head(ozone_title+' / '+acid_title)
+    s+=text(250,55,ozone_title,'t')+text(750,55,acid_title,'t')
+    s+=box(80,105,340,70,ods,'#FFF3E0','small')+arrow(250,175,250,220)
+    s+=box(80,215,340,70,uv+' → '+halogen,BLUELIGHT,'small')+arrow(250,285,250,330)
+    s+=box(80,325,340,70,ozone,'#E8F5E9','small')+arrow(250,395,250,440)
+    s+=box(80,435,340,70,uvb,'#FFEBEE','small')
+    s+=box(580,105,340,70,so2nox,'#FFF3E0','small')+arrow(750,175,750,220)
+    s+=box(580,215,340,70,react,BLUELIGHT,'small')+arrow(750,285,750,330)
+    s+=box(580,325,340,70,dep,'#E0F2F1','small')+arrow(750,395,750,440)
+    s+=box(580,435,340,100,effects,'#FFEBEE','small')
+    return s+footer()
+
+def diagram_efficiency(labels):
+    source,conversion,service,loss,eff=labels
+    s=svg_head(eff)+title(eff)
+    s+=box(60,240,210,90,source,'#FFF3E0','small')+arrow(270,285,350,285)+box(350,240,250,90,conversion,BLUELIGHT,'small')
+    s+=arrow(600,285,690,220)+box(690,175,250,90,service,LIGHT,'small')
+    s+=arrow(600,285,690,390)+box(690,355,250,90,loss,'#FFEBEE','small')
+    return s+footer()
+
+
+def diagram_water(labels):
+    avoid,efficient,reuse,rain,monitor=labels
+    s=svg_head(monitor)+title(monitor)
+    coords=[(90,120),(390,120),(690,120),(240,350),(540,350)]
