@@ -39,7 +39,11 @@ jobs:
           test -d native-build/Environmental-Studies-v2.0.0-native
           cd native-build/Environmental-Studies-v2.0.0-native
           patch -p1 < ../../ci/indus-hold.patch
-          unzip -oq ../../ci/envstudy-v2.1-overlay.zip -d .
+          cp ../../overlay/v2.1/app/build.gradle.kts app/build.gradle.kts
+          cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt
+          cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt
+          cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt
+          patch -p1 < ../../ci/v2.1-ui-integration.patch
           cp ../../site/privacy-policy.html site/privacy-policy.html
 
       - name: Verify pure-native source contract
