@@ -78,26 +78,31 @@ jobs:
           cd native-build/Environmental-Studies-v2.0.0-native
           python ../../ci/apply_v22_visuals.py
           python - <<'PY'
+          import json
           from pathlib import Path
           p=Path("app/build.gradle.kts")
           s=p.read_text()
           s=s.replace('versionCode = 20100','versionCode = 20200')
           s=s.replace('versionName = "2.1.0"','versionName = "2.2.0"')
+          if 'com.caverock:androidsvg-aar:1.4' not in s:
+              s=s.replace('implementation("androidx.compose.ui:ui-tooling-preview")',
+                          'implementation("androidx.compose.ui:ui-tooling-preview")\n    implementation("com.caverock:androidsvg-aar:1.4")')
           p.write_text(s)
-          PY
-          grep -q 'versionName = "2.2.0"' app/build.gradle.kts
-          grep -q 'versionCode = 20200' app/build.gradle.kts
-          test "$(find app/src/main/res/raw -type f -name 'v22_*.svg' | wc -l)" -eq 34
-          test "$(find app/src/main/res/drawable-nodpi -type f -name '*.png' | wc -l)" -eq 63
-          grep -q 'com.caverock:androidsvg-aar:1.4' app/build.gradle.kts
-          python - <<'PY'
-          import json
-          from pathlib import Path
+          assert 'versionCode = 20200' in s
+          assert 'versionName = "2.2.0"' in s
+          assert 'com.caverock:androidsvg-aar:1.4' in s
+
+          svg_files=list(Path("app/src/main/res/raw").glob("v22_*.svg"))
+          png_files=list(Path("app/src/main/res/drawable-nodpi").glob("*.png"))
           data=json.loads(Path("app/src/main/res/raw/book_content.json").read_text())
           blocks=[b for u in data["units"] for lesson in u["lessons"] for lang in ("english","tamil") for b in lesson[lang] if b.get("kind")=="svg_figure"]
+          print("V22_SVG_RESOURCES", len(svg_files))
+          print("EXISTING_PNG_ASSETS", len(png_files))
+          print("SVG_FIGURE_BLOCKS", len(blocks))
+          assert len(svg_files)==34, len(svg_files)
+          assert len(png_files)>=60, len(png_files)
           assert len(blocks)==34, len(blocks)
           assert all(b.get("figure","").startswith("v22_") for b in blocks)
-          print("SVG_FIGURE_BLOCKS", len(blocks))
           PY
 
       - name: Verify public Privacy Policy URL
