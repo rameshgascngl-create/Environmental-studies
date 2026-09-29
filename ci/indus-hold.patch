@@ -1,0 +1,227 @@
+--- a/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt
++++ b/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt
+@@ -1,5 +1,8 @@
+ package edu.gascnagercoil.environmentalsciences.ui
+ 
++import android.content.ClipData
++import android.content.ClipboardManager
++import android.content.Context
+ import android.content.Intent
+ import android.net.Uri
+ import android.widget.Toast
+@@ -114,6 +117,13 @@
+                                     }
+                                 )
+                                 DropdownMenuItem(
++                                    text = { Text("Privacy Policy / தனியுரிமை") },
++                                    onClick = {
++                                        menuOpen = false
++                                        navigate("privacy")
++                                    }
++                                )
++                                DropdownMenuItem(
+                                     text = { Text(if (largeText) "Standard text size" else "Larger text · A↕") },
+                                     onClick = {
+                                         largeText = !largeText
+@@ -248,9 +258,20 @@
+             }
+         }
+         item {
+-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+-                OutlinedButton(onClick = { navigate("units") }) { Text("Contents") }
+-                OutlinedButton(onClick = { navigate("tools") }) { Text("Interactive tools") }
++            BoxWithConstraints(Modifier.fillMaxWidth()) {
++                if (maxWidth < 420.dp) {
++                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++                        OutlinedButton(onClick = { navigate("units") }, modifier = Modifier.fillMaxWidth()) { Text("Contents") }
++                        OutlinedButton(onClick = { navigate("tools") }, modifier = Modifier.fillMaxWidth()) { Text("Interactive tools") }
++                        OutlinedButton(onClick = { navigate("privacy") }, modifier = Modifier.fillMaxWidth()) { Text("Privacy Policy") }
++                    }
++                } else {
++                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
++                        OutlinedButton(onClick = { navigate("units") }) { Text("Contents") }
++                        OutlinedButton(onClick = { navigate("tools") }) { Text("Interactive tools") }
++                        OutlinedButton(onClick = { navigate("privacy") }) { Text("Privacy") }
++                    }
++                }
+             }
+         }
+         items(book.units) { unit ->
+@@ -281,9 +302,18 @@
+                             }
+                         }
+                     }
+-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-                        TextButton(onClick = { navigate("review:${unit.number}") }) { Text("Review") }
+-                        TextButton(onClick = { navigate("quiz:${unit.number}") }) { Text("MCQ practice (${unit.quiz.size})") }
++                    BoxWithConstraints(Modifier.fillMaxWidth()) {
++                        if (maxWidth < 420.dp) {
++                            Column {
++                                TextButton(onClick = { navigate("review:${unit.number}") }, modifier = Modifier.fillMaxWidth()) { Text("Review") }
++                                TextButton(onClick = { navigate("quiz:${unit.number}") }, modifier = Modifier.fillMaxWidth()) { Text("MCQ practice (${unit.quiz.size})") }
++                            }
++                        } else {
++                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                                TextButton(onClick = { navigate("review:${unit.number}") }) { Text("Review") }
++                                TextButton(onClick = { navigate("quiz:${unit.number}") }) { Text("MCQ practice (${unit.quiz.size})") }
++                            }
++                        }
+                     }
+                 }
+             }
+@@ -310,9 +340,18 @@
+             HorizontalDivider()
+         }
+         item {
+-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-                Button(onClick = { navigate("review:${unit.number}") }) { Text("Review") }
+-                OutlinedButton(onClick = { navigate("quiz:${unit.number}") }) { Text("MCQs") }
++            BoxWithConstraints(Modifier.fillMaxWidth()) {
++                if (maxWidth < 360.dp) {
++                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++                        Button(onClick = { navigate("review:${unit.number}") }, modifier = Modifier.fillMaxWidth()) { Text("Review") }
++                        OutlinedButton(onClick = { navigate("quiz:${unit.number}") }, modifier = Modifier.fillMaxWidth()) { Text("MCQs") }
++                    }
++                } else {
++                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                        Button(onClick = { navigate("review:${unit.number}") }) { Text("Review") }
++                        OutlinedButton(onClick = { navigate("quiz:${unit.number}") }) { Text("MCQs") }
++                    }
++                }
+             }
+         }
+     }
+@@ -492,10 +531,20 @@
+ 
+ @Composable
+ private fun LanguageSelector(mode: LanguageMode, onMode: (LanguageMode) -> Unit) {
+-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-        FilterChip(selected = mode == LanguageMode.BOTH, onClick = { onMode(LanguageMode.BOTH) }, label = { Text("Both") })
+-        FilterChip(selected = mode == LanguageMode.ENGLISH, onClick = { onMode(LanguageMode.ENGLISH) }, label = { Text("English") })
+-        FilterChip(selected = mode == LanguageMode.TAMIL, onClick = { onMode(LanguageMode.TAMIL) }, label = { Text("தமிழ்") })
++    BoxWithConstraints(Modifier.fillMaxWidth()) {
++        if (maxWidth < 340.dp) {
++            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
++                FilterChip(selected = mode == LanguageMode.BOTH, onClick = { onMode(LanguageMode.BOTH) }, label = { Text("Both") }, modifier = Modifier.fillMaxWidth())
++                FilterChip(selected = mode == LanguageMode.ENGLISH, onClick = { onMode(LanguageMode.ENGLISH) }, label = { Text("English") }, modifier = Modifier.fillMaxWidth())
++                FilterChip(selected = mode == LanguageMode.TAMIL, onClick = { onMode(LanguageMode.TAMIL) }, label = { Text("தமிழ்") }, modifier = Modifier.fillMaxWidth())
++            }
++        } else {
++            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                FilterChip(selected = mode == LanguageMode.BOTH, onClick = { onMode(LanguageMode.BOTH) }, label = { Text("Both") }, modifier = Modifier.weight(1f))
++                FilterChip(selected = mode == LanguageMode.ENGLISH, onClick = { onMode(LanguageMode.ENGLISH) }, label = { Text("English") }, modifier = Modifier.weight(1f))
++                FilterChip(selected = mode == LanguageMode.TAMIL, onClick = { onMode(LanguageMode.TAMIL) }, label = { Text("தமிழ்") }, modifier = Modifier.weight(1f))
++            }
++        }
+     }
+ }
+ 
+@@ -523,6 +572,7 @@
+                 Column(Modifier.padding(16.dp)) {
+                     Text("Privacy Policy", fontWeight = FontWeight.SemiBold)
+                     Text("தனியுரிமைக் கொள்கை")
++                    Text("Available inside the app; public HTTPS copy opens in your browser.", style = MaterialTheme.typography.bodySmall)
+                 }
+             }
+         }
+@@ -588,10 +638,16 @@
+ @Composable
+ private fun PrivacyScreen(policy: PrivacyPolicy) {
+     val context = LocalContext.current
++    val publicUrl = BuildConfig.PRIVACY_POLICY_URL.trim()
+     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+         item {
+             Text("Privacy Policy", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+             Text("தனியுரிமைக் கொள்கை", style = MaterialTheme.typography.titleLarge)
++            Text(
++                "This full policy is available inside the app even when the device is offline.",
++                style = MaterialTheme.typography.bodyMedium,
++                color = MaterialTheme.colorScheme.primary
++            )
+         }
+         items(policy.english) { Text(it, style = MaterialTheme.typography.bodyLarge) }
+         item { HorizontalDivider() }
+@@ -600,13 +656,40 @@
+             Text("Policy version: ${policy.version}", style = MaterialTheme.typography.labelLarge)
+             Spacer(Modifier.height(8.dp))
+             Text(policy.credit.joinToString("\n"), style = MaterialTheme.typography.bodyMedium)
++            Text("Contact: rameshgascngl@gmail.com", style = MaterialTheme.typography.bodyMedium)
+         }
+-        if (BuildConfig.PRIVACY_POLICY_URL.isNotBlank()) {
++        if (publicUrl.isNotBlank()) {
++            item {
++                ElevatedCard(Modifier.fillMaxWidth()) {
++                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
++                        Text("Public Privacy Policy URL", fontWeight = FontWeight.SemiBold)
++                        Text(publicUrl, style = MaterialTheme.typography.bodySmall)
++                        Button(
++                            onClick = { openPrivacyPolicyUrl(context, publicUrl) },
++                            modifier = Modifier.fillMaxWidth()
++                        ) { Text("Open public Privacy Policy") }
++                    }
++                }
++            }
++        } else {
+             item {
+-                Button(onClick = {
+-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.PRIVACY_POLICY_URL)))
+-                }) { Text("Open public Privacy Policy") }
++                Text(
++                    "Public Privacy Policy URL is not configured in this debug build. Release builds are blocked unless a valid HTTPS URL is supplied.",
++                    color = MaterialTheme.colorScheme.error,
++                    style = MaterialTheme.typography.bodySmall
++                )
+             }
+         }
+     }
+ }
++
++private fun openPrivacyPolicyUrl(context: Context, url: String) {
++    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
++        addCategory(Intent.CATEGORY_BROWSABLE)
++    }
++    if (runCatching { context.startActivity(intent) }.isSuccess) return
++
++    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
++    clipboard?.setPrimaryClip(ClipData.newPlainText("Environmental Studies Privacy Policy", url))
++    Toast.makeText(context, "Could not open the browser. Privacy Policy URL copied.", Toast.LENGTH_LONG).show()
++}
+--- a/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt
++++ b/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt
+@@ -80,9 +80,19 @@
+ 
+ @Composable
+ private fun LanguageSelectorQuiz(mode: LanguageMode, onMode: (LanguageMode) -> Unit) {
+-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-        FilterChip(selected = mode == LanguageMode.BOTH, onClick = { onMode(LanguageMode.BOTH) }, label = { Text("Both") })
+-        FilterChip(selected = mode == LanguageMode.ENGLISH, onClick = { onMode(LanguageMode.ENGLISH) }, label = { Text("English") })
+-        FilterChip(selected = mode == LanguageMode.TAMIL, onClick = { onMode(LanguageMode.TAMIL) }, label = { Text("தமிழ்") })
++    BoxWithConstraints(Modifier.fillMaxWidth()) {
++        if (maxWidth < 340.dp) {
++            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
++                FilterChip(selected = mode == LanguageMode.BOTH, onClick = { onMode(LanguageMode.BOTH) }, label = { Text("Both") }, modifier = Modifier.fillMaxWidth())
++                FilterChip(selected = mode == LanguageMode.ENGLISH, onClick = { onMode(LanguageMode.ENGLISH) }, label = { Text("English") }, modifier = Modifier.fillMaxWidth())
++                FilterChip(selected = mode == LanguageMode.TAMIL, onClick = { onMode(LanguageMode.TAMIL) }, label = { Text("தமிழ்") }, modifier = Modifier.fillMaxWidth())
++            }
++        } else {
++            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                FilterChip(selected = mode == LanguageMode.BOTH, onClick = { onMode(LanguageMode.BOTH) }, label = { Text("Both") }, modifier = Modifier.weight(1f))
++                FilterChip(selected = mode == LanguageMode.ENGLISH, onClick = { onMode(LanguageMode.ENGLISH) }, label = { Text("English") }, modifier = Modifier.weight(1f))
++                FilterChip(selected = mode == LanguageMode.TAMIL, onClick = { onMode(LanguageMode.TAMIL) }, label = { Text("தமிழ்") }, modifier = Modifier.weight(1f))
++            }
++        }
+     }
+ }
+--- a/site/privacy-policy.html
++++ b/site/privacy-policy.html
+@@ -22,7 +22,8 @@
+ <p>மொழித் தேர்வு, வாசிப்பு நிலை போன்ற கற்றல் விருப்பங்கள் சாதனத்தில் உள்ளூர் முறையில் சேமிக்கப்படலாம். அவை செயலியிலிருந்து வெளியில் அனுப்பப்படுவதில்லை.</p>
+ <p>இந்த வெளியீட்டில் விளம்பரம், analytics, tracking SDK அல்லது தொலைதூர உள்ளடக்க ஏற்றுதல் இல்லை.</p>
+ </div>
+-<p><small>Policy version: 2.0 · 26 September 2026</small></p>
+-<p>R. Ramesh<br>Department of Zoology<br>Government Arts and Science College<br>Nagercoil, Tamil Nadu</p>
++<p><small>Policy version: 2.1 · 29 September 2026</small></p>
++<p>R. Ramesh<br>Department of Zoology<br>Government Arts and Science College<br>Nagercoil, Tamil Nadu<br><strong>Email:</strong> rameshgascngl@gmail.com</p>
++<p><small>Android package: edu.gascnagercoil.environmentalsciences</small></p>
+ </body>
+ </html>
