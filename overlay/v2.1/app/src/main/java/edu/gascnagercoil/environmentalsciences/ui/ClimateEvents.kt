@@ -1,19 +1,31 @@
 package edu.gascnagercoil.environmentalsciences.ui
 
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -21,224 +33,221 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import edu.gascnagercoil.environmentalsciences.model.LanguageMode
-import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.sin
 
-private enum class ClimateEvent { CYCLONE, FLOOD, DROUGHT, HEATWAVE, EL_NINO }
+private enum class ClimateEvent {
+    HEATWAVE,
+    CYCLONE,
+    MONSOON,
+    DROUGHT,
+}
 
-@OptIn(ExperimentalLayoutApi::class)
+private data class ClimateEventText(
+    val event: ClimateEvent,
+    val en: String,
+    val ta: String,
+    val enExplanation: String,
+    val taExplanation: String,
+)
+
+private val climateEvents = listOf(
+    ClimateEventText(
+        ClimateEvent.HEATWAVE,
+        "Heatwave",
+        "ро╡рпЖрокрпНрок роЕро▓рпИ",
+        "Persistent high temperatures can develop when strong high pressure, clear skies and dry soils reinforce surface heating. Climate change can increase the frequency and intensity of some heat extremes.",
+        "ро╡ро▓рпБро╡ро╛рой роЙропро░рпН роЕро┤рпБродрпНродроорпН, роорпЗроХрооро▒рпНро▒ ро╡ро╛ройроорпН, роЙро▓ро░рпНроирпНрод роорогрпН роЖроХро┐ропро╡рпИ роорпЗро▒рпНрокро░рокрпНрокрпБ ро╡рпЖрокрпНрокрооро╛родро▓рпИ роЕродро┐роХро░ро┐роХрпНроХрпБроорпНрокрпЛродрпБ роирпАроЯро┐родрпНрод роЕродро┐роХ ро╡рпЖрокрпНрокроиро┐ро▓рпИ роЙро░рпБро╡ро╛роХро▓ро╛роорпН. роХро╛ро▓роиро┐ро▓рпИ рооро╛ро▒рпНро▒роорпН роЪро┐ро▓ роХроЯрпБроорпИропро╛рой ро╡рпЖрокрпНрок роиро┐роХро┤рпНро╡рпБроХро│ро┐ройрпН роЕроЯро┐роХрпНроХроЯро┐ роиро┐роХро┤рпНродро▓рпН рооро▒рпНро▒рпБроорпН родрпАро╡ро┐ро░родрпНродрпИ роЕродро┐роХро░ро┐роХрпНроХро▓ро╛роорпН.",
+    ),
+    ClimateEventText(
+        ClimateEvent.CYCLONE,
+        "Tropical cyclone",
+        "ро╡рпЖрокрпНрокроорогрпНроЯро▓рокрпН рокрпБропро▓рпН",
+        "Warm ocean water supplies heat and moisture. Rising moist air, condensation and latent-heat release can help lower central pressure and organise rotating inflow when other atmospheric conditions are favourable.",
+        "роЪрпВроЯро╛рой роХроЯро▓рпН роирпАро░рпН ро╡рпЖрокрпНрокродрпНродрпИропрпБроорпН роИро░рокрпНрокродродрпНродрпИропрпБроорпН ро╡ро┤роЩрпНроХрпБроХро┐ро▒родрпБ. роИро░рооро╛рой роХро╛ро▒рпНро▒рпБ роорпЗро▓рпЖро┤рпБродро▓рпН, родро┐ро░ро╡рооро╛родро▓рпН рооро▒рпНро▒рпБроорпН рооро▒рпИро╡рпЖрокрпНрок ро╡рпЖро│ро┐ропрпАроЯрпБ роЖроХро┐ропро╡рпИ, роПро▒рпНро▒ ро╡ро│ро┐роорогрпНроЯро▓ роиро┐ро▓рпИроХро│ро┐ро▓рпН, роорпИроп роЕро┤рпБродрпНродроорпН роХрпБро▒рпИроирпНродрпБ роЪрпБро┤ро▓рпБроорпН роХро╛ро▒рпНро▒рпЛроЯрпНроЯроорпН роТро┤рпБроЩрпНроХрпБрокроЯ роЙродро╡рпБроХро┐ройрпНро▒рой.",
+    ),
+    ClimateEventText(
+        ClimateEvent.MONSOON,
+        "Indian monsoon",
+        "роЗроирпНродро┐роп рокро░рпБро╡рооро┤рпИ",
+        "Seasonal land-ocean heating differences and large-scale atmospheric circulation move moisture toward the Indian subcontinent. Topography, including the Western Ghats, strongly modifies rainfall distribution.",
+        "роиро┐ро▓роорпБроорпН роХроЯро▓рпБроорпН рокро░рпБро╡роХро╛ро▓родрпНродро┐ро▓рпН ро╡рпЗро▒рпБрокроЯрпНроЯ роЕро│ро╡ро┐ро▓рпН ро╡рпЖрокрпНрокроороЯрпИро╡родрпБроорпН рокрпЖро░ро┐роп роЕро│ро╡ро┐ро▓ро╛рой ро╡ро│ро┐роорогрпНроЯро▓роЪрпН роЪрпБро┤ро▒рпНроЪро┐ропрпБроорпН роИро░рокрпНрокродродрпНродрпИ роЗроирпНродро┐ропродрпН родрпБрогрпИроХрпНроХрогрпНроЯродрпНродро┐ро▒рпНроХрпБроХрпН роХрпКрогрпНроЯрпБ роЪрпЖро▓рпНроХро┐ройрпНро▒рой. роорпЗро▒рпНроХрпБ родрпКроЯро░рпНроЪрпНроЪро┐ рооро▓рпИ роЙро│рпНро│ро┐роЯрпНроЯ роиро┐ро▓ро╡роЯро┐ро╡рпБ рооро┤рпИрокрпН рокроХро┐ро░рпНро╡рпИ ро╡ро▓рпБро╡ро╛роХ рооро╛ро▒рпНро▒рпБроХро┐ро▒родрпБ.",
+    ),
+    ClimateEventText(
+        ClimateEvent.DROUGHT,
+        "Drought",
+        "ро╡ро▒роЯрпНроЪро┐",
+        "Drought develops when water availability remains below normal for an extended period. Rainfall deficits, high evaporation, soil-moisture loss and water demand can interact; drought is not simply the absence of rain.",
+        "роирпАро░рпН роХро┐роЯрпИрокрпНрокрпБродрпН родройрпНроорпИ роирпАрогрпНроЯ роХро╛ро▓роорпН роЗропро▓рпНрокрпИ ро╡ро┐роЯроХрпН роХрпБро▒рпИроирпНродро┐ро░рпБроХрпНроХрпБроорпНрокрпЛродрпБ ро╡ро▒роЯрпНроЪро┐ роЙро░рпБро╡ро╛роХро┐ро▒родрпБ. рооро┤рпИроХрпН роХрпБро▒рпИро╡рпБ, роЕродро┐роХ роЖро╡ро┐ропро╛родро▓рпН, роорогрпН роИро░рокрпНрокрод роЗро┤рокрпНрокрпБ рооро▒рпНро▒рпБроорпН роирпАро░рпН родрпЗро╡рпИ роТройрпНро▒рпЛроЯрпКройрпНро▒рпБ родрпКроЯро░рпНрокрпБрокроЯро▓ро╛роорпН; ро╡ро▒роЯрпНроЪро┐ роОройрпНрокродрпБ рооро┤рпИропро┐ройрпНроорпИ роороЯрпНроЯрпБроорпН роЕро▓рпНро▓.",
+    ),
+)
+
 @Composable
 fun ClimateEventsCard(mode: LanguageMode) {
-    var selected by rememberSaveable { mutableStateOf(ClimateEvent.CYCLONE.name) }
-    var playing by rememberSaveable { mutableStateOf(true) }
-    var speed by rememberSaveable { mutableFloatStateOf(1f) }
-    val event = runCatching { ClimateEvent.valueOf(selected) }.getOrDefault(ClimateEvent.CYCLONE)
+    var selected by remember { mutableStateOf(ClimateEvent.MONSOON) }
+    val selectedText = climateEvents.first { it.event == selected }
+    val tamil = mode == LanguageMode.TAMIL
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = if (tamil) "роХро╛ро▓роиро┐ро▓рпИ роиро┐роХро┤рпНро╡рпБроХро│рпН тАФ роЗропроХрпНроХ ро╡ро┐ро│роХрпНроХроорпН" else "Climate Events тАФ Animated Explorer",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = if (tamil)
+                    "роиро┐роХро┤рпНро╡рпИродрпН родрпЗро░рпНроирпНродрпЖроЯрпБродрпНродрпБ роЕродройрпН роЪрпЖропро▓рпНроорпБро▒рпИропрпИ роЗропроХрпНроХрокрпНрокроЯрооро╛роХроХрпН роХро╛рогрпБроЩрпНроХро│рпН."
+                else
+                    "Choose an event and observe a lightweight conceptual animation of the process.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(end = 8.dp),
+            ) {
+                items(climateEvents) { item ->
+                    FilterChip(
+                        selected = selected == item.event,
+                        onClick = { selected = item.event },
+                        label = { Text(if (tamil) item.ta else item.en) },
+                    )
+                }
+            }
+
+            ClimateAnimation(event = selected)
+
+            Text(
+                text = if (tamil) selectedText.ta else selectedText.en,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = if (tamil) selectedText.taExplanation else selectedText.enExplanation,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = if (tamil)
+                    "роХрпБро▒ро┐рокрпНрокрпБ: роЗродрпБ роХро░рпБродрпНродрпБрогро░рпНро╡рпБроХрпНроХро╛рой ро╡ро┐ро│роХрпНроХ рооро╛родро┐ро░ро┐; ро╡ро╛ройро┐ро▓рпИ роЕро▓рпНро▓родрпБ роХро╛ро▓роиро┐ро▓рпИ роорпБройрпНройро▒ро┐ро╡ро┐рокрпНрокрпБ рооро╛родро┐ро░ро┐ роЕро▓рпНро▓."
+                else
+                    "Note: This is a conceptual learning model, not a weather or climate forecasting model.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ClimateAnimation(event: ClimateEvent) {
     val transition = rememberInfiniteTransition(label = "climate-event")
-    val loop by transition.animateFloat(
+    val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = (2600 / speed.coerceIn(.5f, 2f)).toInt(), easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
+            animation = tween(durationMillis = 2800, easing = LinearEasing),
         ),
-        label = "climate-progress",
+        label = "phase",
     )
-    val progress = if (playing) loop else .35f
 
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(localClimate(mode, "Climate events тАФ animated explainer", "роХро╛ро▓роиро┐ро▓рпИ роиро┐роХро┤рпНро╡рпБроХро│рпН тАФ роЗропроХрпНроХ ро╡ро┐ро│роХрпНроХроорпН"), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-            Text(localClimate(mode,
-                "Visualise cyclone, flood, drought, heatwave and El Ni├▒oтАУocean warming as conceptual animations.",
-                "роЪрпВро▒ро╛ро╡ро│ро┐, ро╡рпЖро│рпНро│роорпН, ро╡ро▒роЯрпНроЪро┐, ро╡рпЖрокрпНрокроЕро▓рпИ рооро▒рпНро▒рпБроорпН роОро▓рпН роиро┐ройрпЛтАУроХроЯро▓рпН ро╡рпЖрокрпНрокрооро╛ро▒рпНро▒родрпНродрпИ роХро░рпБродрпНродро┐ропро▓рпН роЗропроХрпНроХрокрпНрокроЯрооро╛роХроХрпН роХро╛рогрпБроЩрпНроХро│рпН."))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                ClimateEvent.entries.forEach { candidate ->
-                    FilterChip(selected = event == candidate, onClick = { selected = candidate.name }, label = { Text(eventName(candidate, mode)) })
+    val primary = MaterialTheme.colorScheme.primary
+    val secondary = MaterialTheme.colorScheme.secondary
+    val tertiary = MaterialTheme.colorScheme.tertiary
+    val surface = MaterialTheme.colorScheme.surfaceVariant
+
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(210.dp)
+            .background(surface, RoundedCornerShape(18.dp))
+            .padding(8.dp),
+    ) {
+        val w = size.width
+        val h = size.height
+
+        when (event) {
+            ClimateEvent.HEATWAVE -> {
+                drawRect(Color(0xFFFFD180), topLeft = Offset.Zero, size = Size(w, h))
+                drawCircle(Color(0xFFFF9800), radius = h * 0.14f, center = Offset(w * 0.82f, h * 0.20f))
+                repeat(5) { i ->
+                    val x = w * (0.12f + i * 0.18f)
+                    val y0 = h * (0.82f - ((phase + i * 0.13f) % 1f) * 0.35f)
+                    val path = Path().apply {
+                        moveTo(x, y0)
+                        cubicTo(x - 16f, y0 - 24f, x + 16f, y0 - 46f, x, y0 - 70f)
+                    }
+                    drawPath(path, primary, style = Stroke(width = 6f, cap = StrokeCap.Round))
+                }
+                drawRect(Color(0xFF8D6E63), topLeft = Offset(0f, h * 0.82f), size = Size(w, h * 0.18f))
+            }
+
+            ClimateEvent.CYCLONE -> {
+                drawRect(Color(0xFFB3E5FC), topLeft = Offset.Zero, size = Size(w, h))
+                val center = Offset(w * 0.52f, h * 0.48f)
+                repeat(4) { ring ->
+                    val radius = h * (0.12f + ring * 0.10f)
+                    val start = phase * 360f + ring * 28f
+                    drawArc(
+                        color = if (ring % 2 == 0) primary else secondary,
+                        startAngle = start,
+                        sweepAngle = 255f,
+                        useCenter = false,
+                        topLeft = Offset(center.x - radius, center.y - radius),
+                        size = Size(radius * 2f, radius * 2f),
+                        style = Stroke(width = 8f, cap = StrokeCap.Round),
+                    )
+                }
+                drawCircle(Color.White, radius = h * 0.055f, center = center)
+                drawRect(Color(0xFF0277BD), topLeft = Offset(0f, h * 0.84f), size = Size(w, h * 0.16f))
+            }
+
+            ClimateEvent.MONSOON -> {
+                drawRect(Color(0xFFB3E5FC), topLeft = Offset.Zero, size = Size(w, h))
+                drawRect(Color(0xFF4FC3F7), topLeft = Offset(0f, h * 0.72f), size = Size(w * 0.38f, h * 0.28f))
+                val mountain = Path().apply {
+                    moveTo(w * 0.58f, h * 0.84f)
+                    lineTo(w * 0.72f, h * 0.32f)
+                    lineTo(w * 0.86f, h * 0.84f)
+                    close()
+                }
+                drawPath(mountain, Color(0xFF66BB6A))
+                repeat(4) { i ->
+                    val y = h * (0.30f + i * 0.10f)
+                    val dx = ((phase + i * 0.17f) % 1f) * w * 0.46f
+                    drawLine(
+                        color = primary,
+                        start = Offset(w * 0.08f + dx, y),
+                        end = Offset(w * 0.22f + dx, y),
+                        strokeWidth = 7f,
+                        cap = StrokeCap.Round,
+                    )
+                }
+                repeat(7) { i ->
+                    val x = w * (0.48f + i * 0.055f)
+                    val dropY = h * (0.25f + ((phase + i * 0.11f) % 1f) * 0.40f)
+                    drawLine(secondary, Offset(x, dropY), Offset(x - 5f, dropY + 18f), 5f, StrokeCap.Round)
                 }
             }
-            ClimateEventCanvas(event, progress, Modifier.fillMaxWidth().height(250.dp))
-            Text(eventExplanation(event, mode))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { playing = !playing }, modifier = Modifier.weight(1f)) {
-                    Text(if (playing) localClimate(mode, "Pause", "роЗроЯрпИроиро┐ро▒рпБродрпНродрпБ") else localClimate(mode, "Play", "роЗропроХрпНроХрпБ"))
+
+            ClimateEvent.DROUGHT -> {
+                drawRect(Color(0xFFFFECB3), topLeft = Offset.Zero, size = Size(w, h))
+                drawCircle(Color(0xFFFFA000), radius = h * 0.13f, center = Offset(w * 0.82f, h * 0.20f))
+                drawRect(Color(0xFFC8A56A), topLeft = Offset(0f, h * 0.62f), size = Size(w, h * 0.38f))
+                repeat(7) { i ->
+                    val x = w * (0.08f + i * 0.14f)
+                    drawLine(Color(0xFF6D4C41), Offset(x, h * 0.68f), Offset(x + 30f, h * 0.90f), 4f)
+                    drawLine(Color(0xFF6D4C41), Offset(x + 30f, h * 0.90f), Offset(x + 52f, h * 0.78f), 4f)
                 }
-                OutlinedButton(onClick = { speed = 1f }, modifier = Modifier.weight(1f)) {
-                    Text(localClimate(mode, "Reset speed", "ро╡рпЗроХродрпНродрпИ роорпАроЯрпНыз°+л╕+тКJBИBИBИ^
-Й█╪╪[█[X]J[┘KР[Ъ[X][█И▄YYЛ╕+б°+л°+еx+уx+еH8+нx+с°+еx+л╕+уHК_NИ	╚ЙKМYИЛЩЫ▄ЫX]
-▄YY
-_pх╚КBИ█Y\КШ[YHH▄YY█ХШ[YP┌[Щ┘HH╚▄YYH]KШ[YTШ[Щ┘HHНYЛЛМЩКBИ^
-И╪╪[█[X]J[┘KР██Ш┘\X[XX┌[Щ╚[Ъ[X][█И█ЫN╚]┘\╚Ы▌Ы▄ЩX╪\▌HЩX[]Щ[ЭИЛ╕+б°+й8+рH8+еx+м8+рx+й8+уx+й8+рx+к╕+уH8+к╕+рx+м8+п°+й8+м╕+рx+еx+уx+еx+п╕+кH8+б°+л°+еx+уx+еH8+нx+п°+м°+еx+уx+еx+л╕+уH8+л╕+з°+уx+з°+рx+л╕+с╬╚8+вx+и°+уx+л╕+т8+л°+п╕+кH8+к8+п°+еx+н8+уx+нx+т8+л╕+рx+кx+уx+кx+мx+п°+нx+п°+к╕+уx+к╕+й8+п°+м╕+уx+м╕+тИКKИ▌[HHX]\ЪX[[YKЭ\┘▄Ш\KШЫ┘T█X[И██▄ИHX]\ЪX[[YKШ██▄Ф╪┌[YKЬЪ[X\ЮKИ
-BИBИBЯBВР██\▄╪XЫBЬЪ]Ш]HЭ[И█[X]Q]Щ[Э╪[ЭШ\╩]Щ[ЭИ█[X]Q]Щ[ЭЫ┘▄Щ\▄╬ИЫ╪][┘YЪY\ОИ[┘YЪY\ИH[┘YЪY\КH┬ИШ[Ъ[X\ЮHHX]\ЪX[[YKШ██▄Ф╪┌[YKЬЪ[X\ЮBИ╪[ЭШ\╩[┘YЪY\ЛШШX┌┘▄Ы▌[Щ
-X]\ЪX[[YKШ██▄Ф╪┌[YKЬ▌\ЩШX┘UШ\ЪX[Э
-JH┬ИШ[╚H┌^ЩKЭ┌YИШ[H┌^ЩKЪZY┌И┌[И
-]Щ[Э
-H┬И█[X]Q]Щ[ЭР╓P╙╙СHOИ┬ИШ]╘ЩX▌
-██▄КСРССM╤СКK┌^ЩHH┌^ЩJ╦
-JBИШ]╘ЩX▌
-██▄КСМСН╤МКK▄YЭH┘ЩЬ┘]
-Л
-ИНОКK┌^ЩHH┌^ЩJ╦
-ИМ╠ЩКJBИШ[╚H┘ЩЬ┘]
-╚
-ИНMYЛ
-ИНYКBИЫ▌]JЫ┘▄Щ\▄╚
-И═МЛ]Ы▌H╩H┬ИЩ\X]
-
-H╚\ЫHOВИШ[ШY]\╚H╚
-И
-МИ
-╚\ЫH
-ИМ═YКBИШ]╨\Ш╩██▄ЛХ┌]KШ█▄J[HHОLЩКK\ЫH
-ИMYЛМ═YЛШ[┘K┘ЩЬ┘]
-╦ЮHШY]\╦╦ЮHHШY]\╩K┌^ЩJШY]\╚
-ИЛШY]\╚
-ИКK▌[HH▌Ы┌┘J┌YHLЩИH\ЫH
-ИKНYЛ╪\H▌Ы┌┘P╪\ФЫ▌[Щ
-JBИBИBИШ]╨┌\Ш█J██▄КСМ═╠╩KШY]\╚HЛ┘[Э\ИH╩BИBИ█[X]Q]Щ[ЭСУ╙╤OИ┬ИШ]╘ЩX▌
-██▄КСР╤PССКK┌^ЩHH┌^ЩJ╦
-JBИШ[╪]\Х▄H
-И
-НNИHМИ
-И┌[КЫ┘▄Щ\▄╚
-ИЩИ
-ИJKЭ╤Ы╪]
-
-JBИШ]╘ЩX▌
-██▄КСМ╨ОMJK▄YЭH┘ЩЬ┘]
-Л╪]\Х▄
-K┌^ЩHH┌^ЩJ╦H╪]\Х▄
-JBИЩ\X]
-МКH╚HOВИШ[H
-H
-И┘И
-╚Ы┘▄Щ\▄╚
-ИLМКH	H┬ИШ[HH
-H
-И┘И
-╚Ы┘▄Щ\▄╚
-И
-ИKОКH	H
-
-ИНNКBИШ]╙[ЩJ██▄КСНОP╠
-K┘ЩЬ┘]
-JK┘ЩЬ┘]
-HЛH
-╚НКK┘Л╪\H▌Ы┌┘P╪\ФЫ▌[Щ
-BИBИШ]╘ЩX▌
-██▄КСНС═JK▄YЭH┘ЩЬ┘]
-╚
-ИМYЛ
-ИН┘КK┌^ЩHH┌^ЩJ╚
-ИМNЛ
-ИМЩКJBИШ]╘]
-]
-
-KШ\H╚[▌ЩU╩╚
-ИМЛ
-ИН┘КN╚[ЩU╩╚
-ИМNYЛ
-ИМ╠КN╚[ЩU╩╚
-ИМ╠Л
-ИН┘КN╚█▄┘J
-HK██▄КСОСMМ╩JBИBИ█[X]Q]Щ[ЭСУ╒Q╥OИ┬ИШ]╘ЩX▌
-██▄КССССM╨N
-K┌^ЩHH┌^ЩJ╦
-JBИШ]╨┌\Ш█J██▄КСССРМ╠
-KШY]\╚H╚
-ИМYЛ┘[Э\ИH┘ЩЬ┘]
-╚
-ИОЩЛ
-ИММЩКJBИШ[▄Ы▌[ЩH
-ИННYВИШ]╘ЩX▌
-██▄КСС╬PНMJK▄YЭH┘ЩЬ┘]
-Л▄Ы▌[Щ
-K┌^ЩHH┌^ЩJ╦H▄Ы▌[Щ
-JBИЩ\X]
-
-H╚HOВИШ[H╚
-И
-H
-╚JH╚YВИШ]╘]
-]
-
-KШ\H╚[▌ЩU╩▄Ы▌[Щ
-N╚[ЩU╩HLЩЛ▄Ы▌[Щ
-╚═КN╚[ЩU╩
-╚Л▄Ы▌[Щ
-╚MYКN╚[ЩU╩HЩЛ▄Ы▌[Щ
-╚КHK██▄КСНС═JK▌[HH▌Ы┌┘J┘КJBИBИBИ█[X]Q]Щ[ЭТPU╨UСHOИ┬ИШ]╘ЩX▌
-██▄КССССLМКK┌^ЩHH┌^ЩJ╦
-JBИШ]╨┌\Ш█J██▄КСССОМ
-KШY]\╚H╚
-ИМLYЛ┘[Э\ИH┘ЩЬ┘]
-╚
-ИН╬Л
-ИММЩКJBИШ[Ш\┘[[ЩHH
-ИН╬ВИШ]╘ЩX▌
-██▄КСРР╨PPM
-K▄YЭH┘ЩЬ┘]
-ЛШ\┘[[ЩJK┌^ЩHH┌^ЩJ╦HШ\┘[[ЩJJBИЩ\X]
-JH╚HOВИШ[H╚
-И
-МNИ
-╚H
-ИМMЩКBИШ[]H]
-
-BИЫ▄И
-▌\[ИЛМН
-H┬ИШ[^HH
-ИМНYИ
-╚▌\
-И
-ИМNВИШ[H
-╚┌[К
-▌\╚И
-╚Ы┘▄Щ\▄╚
-ИКH
-ИJKЭ╤Ы╪]
-
-H
-ИYВИYИ
-▌\OH
-H]Ы[▌ЩU╩^JH[┘H]Ы[ЩU╩^JBИBИШ]╘]
-]██▄КССMНLL
-KШ█▄J[HHННYКK▌[HH▌Ы┌┘JЛ╪\H▌Ы┌┘P╪\ФЫ▌[Щ
-JBИBИBИ█[X]Q]Щ[ЭСS╙ТSУ╚OИ┬ИШ]╘ЩX▌
-██▄КССQМССКK┌^ЩHH┌^ЩJ╦
-ИМ═YКJBИШ]╘ЩX▌
-██▄КСМNM═РN
-K▄YЭH┘ЩЬ┘]
-Л
-ИМ═YКK┌^ЩHH┌^ЩJ╦
-ИННYКJBИШ[╪\ЫVH╚
-И
-МЩИ
-╚НMYИ
-ИЫ┘▄Щ\▄╩BИШ]╙▌Ш[
-██▄КСССН╠╩KШ█▄J[HHН═YКK┘ЩЬ┘]
-╪\ЫVH╚
-ИМNЛ
-ИНКK┌^ЩJ╚
-ИМ═ЩЛ
-ИМNКJBИЩ\X]
-
-H╚HOВИШ[HH
-И
-ММ┘И
-╚H
-ИМYКBИШ]╙[ЩJЪ[X\ЮK┘ЩЬ┘]
-╚
-ИМMYЛJK┘ЩЬ┘]
-╚
-ИН═YЛJK┘Л╪\H▌Ы┌┘P╪\ФЫ▌[Щ
-BИBИBИBИBЯBВЬЪ]Ш]HЭ[И]Щ[ЭШ[YJ]Щ[ЭИ█[X]Q]Щ[Э[┘NИ[Щ▌XY┘S[┘JHH┌[И
-]Щ[Э
-H┬И█[X]Q]Щ[ЭР╓P╙╙СHOИ╪╪[█[X]J[┘KР▐X██ЩHЛ╕+ж╕+р╕+мx+п╕+нx+м°+п╚КBИ█[X]Q]Щ[ЭСУ╙╤OИ╪╪[█[X]J[┘KСЫ█┘Л╕+нx+с╕+м°+уx+м°+л╕+уHКBИ█[X]Q]Щ[ЭСУ╒Q╥OИ╪╪[█[X]J[┘KСЫ▌Y┌Л╕+нx+мx+з°+уx+ж╕+п╚КBИ█[X]Q]Щ[ЭТPU╨UСHOИ╪╪[█[X]J[┘KТX]╪]ЩHЛ╕+нx+с╕+к╕+уx+к╕+бx+м╕+тКBИ█[X]Q]Щ[ЭСS╙ТSУ╚OИ╪╪[█[X]J[┘KС[Ъpь[╚Л╕+г╕+м╕+уH8+к8+п°+кx+т╚КBЯBВЬЪ]Ш]HЭ[И]Щ[Э^[Ш][█К]Щ[ЭИ█[X]Q]Щ[Э[┘NИ[Щ▌XY┘S[┘JHH┌[И
-]Щ[Э
-H┬И█[X]Q]Щ[ЭР╓P╙╙СHOИ╪╪[█[X]J[┘KРH▐X██ЩH\╚▄Щ╪[Ъ\┘YЫ▌][Щ╚▌╦\Щ\▄▌\ЩH┌\Ш▌[][█И▌Щ\И╪\ЫH╪┘X[И╪]\ЛИH[Ъ[X][█ИY┌Y┌╚Ы▌][█Л█▌YШ[Щ╚[ЩH╪┘X[И▌\ЩШX┘H┌]▌]Щ\Щ\┘[Э[Щ╚HЩX[▌▄ЫHШX┌╦ИЛ╕+ж╕+р╕+з°+п╕+кH8+еx+з°+м╕+уH8+к8+р8+м8+п°+кx+уH8+л╕+с°+м╕+уH8+вx+м8+рx+нx+п╕+еx+рx+л╕+уH8+й8+п╕+н8+н8+рx+й8+уx+й8+л╕+и°+уx+з°+м╕+й8+уx+й8+т8+ж╕+уH8+ж╕+рx+мx+уx+мx+п╚8+д╕+н8+рx+жx+уx+еx+рx+к╕+з°+рx+й8+уx+й8+к╕+уx+к╕+з°+уx+з╚8+ж╕+рx+н8+мx+уx+ж╕+п╚8+ж╕+р╕+мx+п╕+нx+м°+п°+л°+п°+кx+уH8+бx+з°+п°+к╕+уx+к╕+з°+т8+бx+л╕+уx+ж╕+л╕+п╕+еx+рx+л╕+уKИ8+б°+к8+уx+й8+б°+л°+еx+уx+еx+к╕+уx+к╕+з°+л╕+уH8+вx+и°+уx+л╕+т8+л°+п╕+кH8+к╕+рx+л°+м╕+уH8+к╕+п╕+й8+т8+л°+т8+еx+п╕+з°+уx+з°+рx+нx+й8+п°+м╕+уx+м╕+тИКBИ█[X]Q]Щ[ЭСУ╙╤OИ╪╪[█[X]J[┘KСЫ█┘[Щ╚╪╪▌\Ь╚┌[И╪]\И^┘YY╚H╪\X┌]H┘И┌[ЫЩ[╦ШZ[ШY┘H▄ИH▄Ы▌[Щ╚▌▄ЩH[Щ██ЭЩ^H]ИШZ[ЩШ[╪]┌Y[Э██Щ][█И[ЩШZ[ШY┘H[X]\ЛИЛ╕+б╕+мx+рx+еx+м°+уK8+нx+з°+п°+еx+п╕+м╕+уx+еx+м°+уH8+бx+м╕+уx+м╕+й8+рH8+к8+п°+м╕+й8+уx+й8+п°+кx+уH8+к8+р8+м8+уH8+й8+п╕+жx+уx+еx+рx+л╕+уH8+й8+п°+мx+кx+т8+нx+п°+з╚8+к8+р8+м8+м°+нx+рH8+бx+й8+п°+еx+м8+п°+еx+уx+еx+рx+л╕+уH8+к╕+т°+й8+рH8+нx+с╕+м°+уx+м°+л╕+уH8+г°+мx+уx+к╕+з°+м╕+п╕+л╕+уKИ8+л╕+н8+т8+л°+м°+нx+рK8+к8+р8+м8+уx+к╕+уx+к╕+п°+з°+п°+к╕+уx+к╕+рH8+к8+п°+м╕+т8+л╕+мx+уx+мx+рx+л╕+уH8+нx+з°+п°+еx+п╕+м╕+уH8+бx+л╕+т8+к╕+уx+к╕+рH8+бx+кx+т8+й8+уx+й8+рx+л╕+уH8+л╕+рx+еx+уx+еx+п°+л°+л╕+уKИКBИ█[X]Q]Щ[ЭСУ╒Q╥OИ╪╪[█[X]J[┘KСЫ▌Y┌]Щ[▄╚Ы▌Y┌▌\▌Z[ЩY╪]\ИYЪX┌]ИY][▄Ы█┘┌X╪[Y▄ЪX▌[\Ш[[ЩYЫ█┘┌X╪[Ы▌Y┌\ЩHЩ[]YЭ]Ы▌Y[ЭX╪[ИЛ╕+к8+р8+и°+уx+з°+еx+п╕+мИ8+к8+р8+м8+уx+к╕+уx+к╕+мx+уx+мx+п╕+еx+уx+еx+рx+мx+т8+нx+мx+з°+уx+ж╕+п°+л°+т8+вx+м8+рx+нx+п╕+еx+уx+еx+рx+еx+п°+мx+й8+рKИ8+нx+п╕+кx+п°+м╕+т8+нx+с°+м°+п╕+и°+уH8+л╕+мx+уx+мx+рx+л╕+уH8+к8+р8+м8+п°+л°+м╕+уH8+нx+мx+з°+уx+ж╕+п╚8+й8+т╕+з°+м8+уx+к╕+рx+з°+т8+л°+нx+т╚8+б╕+кx+п╕+м╕+уH8+д╕+кx+уx+мx+м╕+уx+мЛИКBИ█[X]Q]Щ[ЭТPU╨UСHOИ╪╪[█[X]J[┘KРHX]╪]ЩH\╚H\Ъ[┘┘И[Э\▌X[HY┌X]Щ[]]ЩH╚╪╪[██Щ][█Ь╦И\Ш][█Л[ZY]KЪY┌][YH[\\Ш]\ЩH[Щ^▄▌\ЩH[ЩЫY[Ш┘H[\X▌╦ИЛ╕+вx+м°+уx+м°+р╕+м8+уH8+б°+л°+м╕+уx+к╕+т8+д╕+к╕+уx+к╕+п°+з°+рx+л╕+уx+к╕+т°+й8+рH8+й8+т╕+з°+м8+уx+к8+уx+й8+рH8+бx+й8+п°+еH8+нx+с╕+к╕+уx+к╕+к8+п°+м╕+т8+к8+п°+м╕+нx+рx+л╕+уH8+еx+п╕+м╕+л╕+уH8+нx+с╕+к╕+уx+к╕+бx+м╕+т8+г╕+кx+к╕+уx+к╕+з°+рx+л╕+уKИ8+к8+р8+з°+п°+к╕+уx+к╕+рK8+в8+м8+к╕+уx+к╕+й8+л╕+уK8+б°+м8+нx+рx+к8+с°+м8+нx+с╕+к╕+уx+к╕+к8+п°+м╕+т8+л╕+мx+уx+мx+рx+л╕+уH8+нx+с╕+м°+п°+к╕+уx+к╕+п╕+з°+рH8+й8+п╕+еx+уx+еx+й8+уx+й8+т8+л╕+п╕+мx+уx+мx+рx+л╕+уKИКBИ█[X]Q]Щ[ЭСS╙ТSУ╚OИ╪╪[█[X]J[┘KС[Ъpь[╚[ЭЫ█Щ\╚[Э\▌X[H╪\ЫH┘[ЭШ[┘X\▌\ЫИ\]X]▄ЪX[X┌YЪX╚▌\ЩШX┘H╪]\Ь╚[Щ┌[Щ┘\╚[ИЫ▄X╪[][▄▄\ЪX╚┌\Ш▌[][█ЛИ]╪[И[ЩЫY[Ш┘HШZ[ЩШ[]\ЫЬ╦Э]┘\╚Ы▌]\ЫZ[ЩH]Щ\ЮH[█Ь███И▌]██YHЮH]┘[ЛИЛ╕+л╕+й8+уx+й8+п°+л╚8+л╕+мx+уx+мx+рx+л╕+уH8+еx+п°+н8+еx+уx+еx+рH8+ж╕+л╕+нx+с╕+м°+п°+к╕+уH8+к╕+ж╕+п°+к╕+п°+еx+уH8+еx+з°+м╕+п°+кx+уH8+л╕+с°+мx+уx+к╕+м8+к╕+уx+к╕+рH8+к8+р8+м8+уH8+нx+н8+еx+уx+еx+й8+уx+й8+т8+нx+п°+з╚8+ж╕+р╕+з°+п╕+еx+рx+й8+м╕+уH8+л╕+мx+уx+мx+рx+л╕+уH8+нx+с╕+к╕+уx+к╕+л╕+и°+уx+з°+мИ8+нx+м°+п°+л╕+и°+уx+з°+м╕+ж╕+уH8+ж╕+рx+н8+мx+уx+ж╕+п╚8+л╕+п╕+мx+уx+мx+жx+уx+еx+м°+уH8+г╕+м╕+уH8+к8+п°+кx+т°+нx+п°+кx+уH8+л╕+рx+еx+уx+еx+п°+л╚8+бx+л╕+уx+ж╕+жx+уx+еx+м°+уKИ8+б°+й8+рH8+л╕+н8+т8+нx+з°+п°+нx+жx+уx+еx+м°+т8+к╕+уH8+к╕+п╕+й8+п°+еx+уx+еx+м╕+п╕+л╕+уN╚8+б╕+кx+п╕+м╕+уH8+д╕+нx+уx+нx+т╕+м8+рH8+к╕+м8+рx+нx+л╕+н8+т8+нx+п°+м°+т8+нx+т8+л°+рx+л╕+уH8+й8+кx+п°+л°+п╕+еH8+к8+п°+м8+уx+и°+л°+п°+к╕+уx+к╕+й8+п°+м╕+уx+м╕+тИКBЯBВЬЪ]Ш]HЭ[И╪╪[█[X]J[┘NИ[Щ▌XY┘S[┘K[ОИ▌Ъ[Щ╦NИ▌Ъ[Щ╩HHYИ
-[┘HOH[Щ▌XY┘S[┘KХSRS
-HH[┘H[В
+                val pulse = 10f + 7f * sin(phase * 6.28318f)
+                drawCircle(tertiary, radius = pulse, center = Offset(w * 0.18f, h * 0.32f))
+            }
+        }
+    }
+}
