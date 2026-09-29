@@ -1,10 +1,10 @@
-name: Environmental Studies v2.1 Visual Climate QA
+name: Environmental Studies v2.2 Academic Visuals QA
 # Build gate: pure Android + Indus hold corrections
 
 on:
   push:
     branches:
-      - feature/v2.1-language-visual-climate-20260929
+      - feature/v2.2-academic-visuals-20260929
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
-      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/feature/v2.1-language-visual-climate-20260929/site/privacy-policy.html
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/feature/v2.2-academic-visuals-20260929/site/privacy-policy.html
 
     steps:
       - uses: actions/checkout@v4
@@ -67,13 +67,37 @@ jobs:
           ! find app/src/main -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -print -quit | grep -q .
           grep -q 'edu.gascnagercoil.environmentalsciences' app/build.gradle.kts
 
-      - name: Apply v2.1 build identity
+      - name: Apply v2.1 build identity and v2.2 academic visuals
         shell: bash
         run: |
           set -euo pipefail
           cp overlay/v2.1/app/build.gradle.kts native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
-          grep -q 'versionName = "2.1.0"' native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
-          grep -q 'versionCode = 20100' native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
+          cat ci/v22lineparts/part* > ci/apply_v22_visuals.py
+          echo "bbf2cc605767d9273a6bead00b8e2bf1db93fcd74b0195a30f72a85a4f9d1441  ci/apply_v22_visuals.py" | sha256sum -c -
+          cd native-build/Environmental-Studies-v2.0.0-native
+          python ../../ci/apply_v22_visuals.py
+          python - <<'PY'
+          from pathlib import Path
+          p=Path("app/build.gradle.kts")
+          s=p.read_text()
+          s=s.replace('versionCode = 20100','versionCode = 20200')
+          s=s.replace('versionName = "2.1.0"','versionName = "2.2.0"')
+          p.write_text(s)
+          PY
+          grep -q 'versionName = "2.2.0"' app/build.gradle.kts
+          grep -q 'versionCode = 20200' app/build.gradle.kts
+          test "$(find app/src/main/res/raw -type f -name 'v22_*.svg' | wc -l)" -eq 34
+          test "$(find app/src/main/res/drawable-nodpi -type f -name '*.png' | wc -l)" -eq 63
+          grep -q 'com.caverock:androidsvg-aar:1.4' app/build.gradle.kts
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path("app/src/main/res/raw/book_content.json").read_text())
+          blocks=[b for u in data["units"] for lesson in u["lessons"] for lang in ("english","tamil") for b in lesson[lang] if b.get("kind")=="svg_figure"]
+          assert len(blocks)==34, len(blocks)
+          assert all(b.get("figure","").startswith("v22_") for b in blocks)
+          print("SVG_FIGURE_BLOCKS", len(blocks))
+          PY
 
       - name: Verify public Privacy Policy URL
         shell: bash
@@ -115,8 +139,8 @@ jobs:
           "$AAPT" dump badging "$APK" | tee qa-badging.txt
           "$AAPT" dump permissions "$APK" | tee qa-permissions.txt
           grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging.txt
-          grep -q "versionCode='20100'" qa-badging.txt
-          grep -q "versionName='2.1.0-debug'" qa-badging.txt
+          grep -q "versionCode='20200'" qa-badging.txt
+          grep -q "versionName='2.2.0-debug'" qa-badging.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions.txt
           if zipinfo -1 "$APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
             echo "Unexpected web payload in APK" >&2
@@ -128,9 +152,13 @@ jobs:
             echo "webview=absent"
             echo "internet_permission=absent"
             echo "application_id=edu.gascnagercoil.environmentalsciences.debug"
-            echo "version_name=2.1.0-debug"
-            echo "version_code=20100"
+            echo "version_name=2.2.0-debug"
+            echo "version_code=20200"
             echo "privacy_policy=$PRIVACY_URL"
+            echo "academic_visuals_svg_resources=34"
+            echo "academic_visuals_svg_blocks=34"
+            echo "existing_png_assets=63"
+            echo "lesson_objectives=hidden_from_learning_flow"
             echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
           } | tee qa-evidence.txt
 
@@ -141,11 +169,11 @@ jobs:
           set -euo pipefail
           mkdir -p qa-artifact
           APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$APK" qa-artifact/Environmental-Studies-v2.1.0-LANGUAGE-VISUAL-CLIMATE-DEVICE-QA.apk
+          cp "$APK" qa-artifact/Environmental-Studies-v2.2.0-ACADEMIC-VISUALS-DEVICE-QA.apk
           cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.1.0-LANGUAGE-VISUAL-CLIMATE-DEVICE-QA
+          name: Environmental-Studies-v2.2.0-ACADEMIC-VISUALS-DEVICE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
