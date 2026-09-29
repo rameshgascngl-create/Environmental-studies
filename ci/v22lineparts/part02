@@ -1,0 +1,96 @@
+'v22_u06_l61_en': (diagram_efficiency, ['Energy input','Conversion / device','Useful service','Energy losses','Higher efficiency = less input for same service']),
+'v22_u06_l61_ta': (diagram_efficiency, ['ஆற்றல் உள்ளீடு','மாற்றம் / சாதனம்','பயனுள்ள சேவை','ஆற்றல் இழப்பு','அதே சேவைக்கு குறைந்த உள்ளீடு = அதிக திறன்']),
+'v22_u06_l63_en': (diagram_water, ['Fix leaks / avoid waste','Efficient use','Reuse safely','Harvest / recharge','Measure & monitor']),
+'v22_u06_l63_ta': (diagram_water, ['கசிவைச் சரிசெய் / வீணைத் தவிர்','திறமையான பயன்பாடு','பாதுகாப்பாக மறுபயன்பாடு','சேகரிப்பு / செறிவூட்டல்','அளவிடு & கண்காணி']),
+'v22_u06_l65_en': (diagram_campus, ['Sustainable campus','Energy','Water','Waste','Biodiversity','Mobility']),
+'v22_u06_l65_ta': (diagram_campus, ['நிலைத்த வளாகம்','ஆற்றல்','நீர்','கழிவு','உயிரினப் பன்மை','போக்குவரத்து']),
+'v22_u07_l71_en': (lambda labs: diagram_cycle('Environmental management cycle', labs), ['Baseline','Plan','Implement','Monitor','Evaluate & improve']),
+'v22_u07_l71_ta': (lambda labs: diagram_cycle('சுற்றுச்சூழல் மேலாண்மைச் சுழற்சி', labs), ['அடிப்படை நிலை','திட்டமிடல்','செயல்படுத்தல்','கண்காணிப்பு','மதிப்பீடு & மேம்பாடு']),
+'v22_u08_l83_en': (lambda labs: diagram_timeline('Major environmental agreements', labs), [('1971','Ramsar'),('1987','Montreal'),('1992','CBD'),('1992','UNFCCC'),('2015','Paris')]),
+'v22_u08_l83_ta': (lambda labs: diagram_timeline('முக்கிய சுற்றுச்சூழல் ஒப்பந்தங்கள்', labs), [('1971','ராம்சார்'),('1987','மாண்ட்ரியல்'),('1992','CBD'),('1992','UNFCCC'),('2015','பாரிஸ்')]),
+'v22_u09_l93_en': (lambda labs: diagram_audit('Campus waste audit', labs), ['Map sources','Measure waste','Classify streams','Analyse causes','Act & re-audit']),
+'v22_u09_l93_ta': (lambda labs: diagram_audit('வளாகக் கழிவு கணக்காய்வு', labs), ['மூலங்களை வரைபடு','கழிவை அளவிடு','வகைப்படுத்து','காரணம் பகுப்பாய்வு','செயல் & மறுகணக்காய்வு']),
+'v22_u09_l94_en': (lambda labs: diagram_audit('Water-use observation', labs), ['Identify inputs','Map use points','Find leaks/losses','Track rainwater','Conserve & monitor']),
+'v22_u09_l94_ta': (lambda labs: diagram_audit('நீர்ப் பயன்பாட்டு கவனிப்பு', labs), ['நீர் வரவை அறி','பயன்பாட்டு இடங்கள்','கசிவு/இழப்பை காண்','மழைநீரை கண்காணி','சேமி & கண்காணி']),
+'v22_u09_l95_en': (lambda labs: diagram_audit('Local environmental observation', labs), ['Define site','Record abiotic','Record biotic','Note human pressures','Repeat & compare']),
+'v22_u09_l95_ta': (lambda labs: diagram_audit('உள்ளூர் சுற்றுச்சூழல் கவனிப்பு', labs), ['இடத்தை வரையறு','உயிரற்ற கூறுகள் பதிவு','உயிருள்ள கூறுகள் பதிவு','மனித அழுத்தம் பதிவு','மீண்டும் அளந்து ஒப்பிடு']),
+'v22_u09_l96_en': (lambda labs: diagram_cycle('Campus action plan', labs), ['Baseline','Set target','Assign action','Monitor indicator','Review & improve']),
+'v22_u09_l96_ta': (lambda labs: diagram_cycle('வளாகச் செயல் திட்டம்', labs), ['அடிப்படை நிலை','இலக்கு அமை','செயல் பொறுப்பு','குறியீடு கண்காணி','மறுஆய்வு & மேம்பாடு']),
+}
+
+for name,(fn,arg) in visuals.items():
+    data=fn(arg)
+    (RAW/f'{name}.svg').write_text(data,encoding='utf-8')
+
+# Add dependency for raw SVG rendering.
+gradle=BUILD.read_text(encoding='utf-8')
+if 'com.caverock:androidsvg-aar:1.4' not in gradle:
+    gradle=gradle.replace('    implementation("androidx.compose.ui:ui-tooling-preview")', '    implementation("androidx.compose.ui:ui-tooling-preview")\n    implementation("com.caverock:androidsvg-aar:1.4")')
+BUILD.write_text(gradle,encoding='utf-8')
+
+# Add SVG block renderer hook and include SVGs in figure focus.
+native=JAVA/'NativeContent.kt'
+s=native.read_text(encoding='utf-8')
+s=s.replace('        "figure" -> FigureBlock(block)', '        "figure" -> FigureBlock(block)\n        "svg_figure" -> SvgFigureBlock(block)')
+native.write_text(s,encoding='utf-8')
+
+app=JAVA/'App.kt'
+s=app.read_text(encoding='utf-8')
+s=s.replace('filter { it.kind == "figure" }', 'filter { it.kind == "figure" || it.kind == "svg_figure" }')
+app.write_text(s,encoding='utf-8')
+
+svg_renderer='''package edu.gascnagercoil.environmentalsciences.ui
+
+import android.graphics.drawable.PictureDrawable
+import android.view.View
+import android.widget.ImageView
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import com.caverock.androidsvg.SVG
+import edu.gascnagercoil.environmentalsciences.model.ContentBlock
+
+@Composable
+fun SvgFigureBlock(block: ContentBlock) {
+    val context = LocalContext.current
+    val resId = remember(block.figure) {
+        context.resources.getIdentifier(block.figure.orEmpty(), "raw", context.packageName)
+    }
+    if (resId == 0) return
+    var expanded by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (block.title.isNotBlank()) Text(block.title, style = MaterialTheme.typography.titleMedium)
+        ElevatedCard(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
+            SvgResource(resId = resId, modifier = Modifier.fillMaxWidth().heightIn(min = 220.dp, max = 380.dp).padding(8.dp))
+        }
+        if (block.caption.isNotBlank()) Text(block.caption, style = MaterialTheme.typography.bodySmall)
+    }
+    if (expanded) SvgZoomDialog(resId) { expanded = false }
+}
+
+@Composable
+private fun SvgResource(resId: Int, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val picture = remember(resId) {
+        context.resources.openRawResource(resId).use { SVG.getFromInputStream(it).renderToPicture() }
+    }
+    AndroidView(
+        factory = { ctx ->
+            ImageView(ctx).apply {
+                setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+                adjustViewBounds = true
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+        },
+        update = { it.setImageDrawable(PictureDrawable(picture)) },
+        modifier = modifier,
+    )
+}
