@@ -1,0 +1,232 @@
+--- a/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt
++++ b/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt
+@@
+-    var languageName by rememberSaveable { mutableStateOf(prefs.getString("language", LanguageMode.BOTH.name) ?: LanguageMode.BOTH.name) }
++    var languageName by rememberSaveable { mutableStateOf(prefs.getString("language", LanguageMode.ENGLISH.name) ?: LanguageMode.ENGLISH.name) }
+@@
+-    val language = runCatching { LanguageMode.valueOf(languageName) }.getOrDefault(LanguageMode.BOTH)
++    val storedLanguage = runCatching { LanguageMode.valueOf(languageName) }.getOrDefault(LanguageMode.ENGLISH)
++    val language = if (storedLanguage == LanguageMode.BOTH) LanguageMode.ENGLISH else storedLanguage
+@@
+-                        route == "home" -> HomeScreen(book, navigate)
+-                        route == "units" -> UnitsScreen(book, navigate)
+-                        route == "tools" -> SimulationScreen()
++                        route == "home" -> HomeScreen(book, navigate, language) { languageName = it.name }
++                        route == "units" -> UnitsScreen(book, navigate, language)
++                        route == "tools" -> SimulationScreen(language)
+@@
+-                            book.units.firstOrNull { it.number == n }?.let { UnitOpeningScreen(it, navigate) }
++                            book.units.firstOrNull { it.number == n }?.let { UnitOpeningScreen(it, navigate, language) }
+@@
+-                        else -> HomeScreen(book, navigate)
++                        else -> HomeScreen(book, navigate, language) { languageName = it.name }
+                     }
+                 }
+             }
+@@
+-private fun HomeScreen(book: Book, navigate: (String) -> Unit) {
++private fun HomeScreen(
++    book: Book,
++    navigate: (String) -> Unit,
++    language: LanguageMode,
++    onMode: (LanguageMode) -> Unit,
++) {
+     LazyColumn(
+         modifier = Modifier.fillMaxSize(),
+         contentPadding = PaddingValues(20.dp),
+         verticalArrangement = Arrangement.spacedBy(14.dp)
+     ) {
+         item {
+-            Text(book.titleEn, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+-            Text(book.titleTa, style = MaterialTheme.typography.headlineMedium)
+-            Spacer(Modifier.height(6.dp))
+-            Text(book.subtitleEn, style = MaterialTheme.typography.titleMedium)
++            HomeVisualHero(language)
++        }
++        item {
++            LanguageGateway(
++                current = language,
++                onSelect = {
++                    onMode(it)
++                    navigate("units")
++                },
++            )
+         }
+         item {
+             ElevatedCard(Modifier.fillMaxWidth()) {
+                 Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+-                    Text("Native Android Edition · v2.0", fontWeight = FontWeight.SemiBold)
+-                    Text("9 Units · 46 Lessons · 58 MCQs · English + தமிழ்")
+-                    Button(onClick = { navigate("unit:1") }) { Text("Start reading / படிக்கத் தொடங்குக") }
++                    Text(
++                        if (language == LanguageMode.TAMIL) "தமிழ் கற்றல் பகுதி" else "English learning section",
++                        fontWeight = FontWeight.SemiBold,
++                    )
++                    Text(
++                        if (language == LanguageMode.TAMIL) "9 அலகுகள் · 46 பாடங்கள் · படங்கள் · வினாடிவினா · ஊடாடும் மாதிரிகள்"
++                        else "9 units · 46 lessons · visual learning · quizzes · interactive models"
++                    )
++                    Button(onClick = { navigate("unit:1") }) {
++                        Text(if (language == LanguageMode.TAMIL) "கற்றலைத் தொடங்குக" else "Start learning")
++                    }
+                 }
+             }
+         }
+         item {
+-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+-                OutlinedButton(onClick = { navigate("units") }) { Text("Contents") }
+-                OutlinedButton(onClick = { navigate("tools") }) { Text("Interactive tools") }
++            BoxWithConstraints(Modifier.fillMaxWidth()) {
++                if (maxWidth < 420.dp) {
++                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
++                        OutlinedButton(onClick = { navigate("units") }, modifier = Modifier.fillMaxWidth()) {
++                            Text(if (language == LanguageMode.TAMIL) "அலகுகள்" else "Explore units")
++                        }
++                        OutlinedButton(onClick = { navigate("tools") }, modifier = Modifier.fillMaxWidth()) {
++                            Text(if (language == LanguageMode.TAMIL) "காலநிலை மற்றும் ஊடாடும் கருவிகள்" else "Climate & interactive tools")
++                        }
++                    }
++                } else {
++                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
++                        OutlinedButton(onClick = { navigate("units") }) {
++                            Text(if (language == LanguageMode.TAMIL) "அலகுகள்" else "Explore units")
++                        }
++                        OutlinedButton(onClick = { navigate("tools") }) {
++                            Text(if (language == LanguageMode.TAMIL) "ஊடாடும் கருவிகள்" else "Interactive tools")
++                        }
++                    }
++                }
+             }
+         }
+-        items(book.units) { unit ->
+-            ElevatedCard(Modifier.fillMaxWidth().clickable { navigate("unit:${unit.number}") }) {
+-                Column(Modifier.padding(16.dp)) {
+-                    Text("Unit ${unit.number} · ${unit.titleEn}", fontWeight = FontWeight.SemiBold)
+-                    if (unit.titleTa.isNotBlank()) Text(unit.titleTa, style = MaterialTheme.typography.bodyMedium)
+-                    Text("${unit.lessons.size} lessons · ${unit.quiz.size} MCQs", style = MaterialTheme.typography.labelMedium)
+-                }
+-            }
++        item {
++            VisualHighlights(language)
++        }
++        items(book.units) { unit ->
++            UnitVisualCard(
++                unit = unit,
++                mode = language,
++                onClick = { navigate("unit:${unit.number}") },
++            )
+         }
+     }
+ }
+@@
+-private fun UnitsScreen(book: Book, navigate: (String) -> Unit) {
++private fun UnitsScreen(book: Book, navigate: (String) -> Unit, language: LanguageMode) {
+     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+         items(book.units) { unit ->
+             ElevatedCard(Modifier.fillMaxWidth()) {
+                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+-                    Text("Unit ${unit.number}: ${unit.titleEn}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+-                    Text(unit.titleTa)
++                    Text(
++                        if (language == LanguageMode.TAMIL) "அலகு ${unit.number}: ${unit.titleTa}" else "Unit ${unit.number}: ${unit.titleEn}",
++                        style = MaterialTheme.typography.titleLarge,
++                        fontWeight = FontWeight.SemiBold
++                    )
+                     unit.lessons.forEach { lesson ->
+                         OutlinedCard(Modifier.fillMaxWidth().clickable { navigate("lesson:${unit.number}:${lesson.id}") }) {
+                             Column(Modifier.padding(12.dp)) {
+-                                Text("${lesson.number} ${lesson.titleEn}", fontWeight = FontWeight.Medium)
+-                                Text(lesson.titleTa, style = MaterialTheme.typography.bodySmall)
++                                Text(
++                                    "${lesson.number} ${if (language == LanguageMode.TAMIL) lesson.titleTa else lesson.titleEn}",
++                                    fontWeight = FontWeight.Medium
++                                )
+                             }
+                         }
+                     }
+@@
+-private fun UnitOpeningScreen(unit: UnitContent, navigate: (String) -> Unit) {
++private fun UnitOpeningScreen(unit: UnitContent, navigate: (String) -> Unit, language: LanguageMode) {
+     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+         item {
+-            Text("Unit ${unit.number}", style = MaterialTheme.typography.labelLarge)
+-            Text(unit.titleEn, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+-            Text(unit.titleTa, style = MaterialTheme.typography.titleLarge)
++            Text(if (language == LanguageMode.TAMIL) "அலகு ${unit.number}" else "Unit ${unit.number}", style = MaterialTheme.typography.labelLarge)
++            Text(
++                if (language == LanguageMode.TAMIL) unit.titleTa else unit.titleEn,
++                style = MaterialTheme.typography.headlineMedium,
++                fontWeight = FontWeight.Bold
++            )
+         }
+@@
+         items(unit.lessons) { lesson ->
+             ListItem(
+-                headlineContent = { Text("${lesson.number} ${lesson.titleEn}") },
+-                supportingContent = { Text(lesson.titleTa) },
++                headlineContent = { Text("${lesson.number} ${if (language == LanguageMode.TAMIL) lesson.titleTa else lesson.titleEn}") },
+                 modifier = Modifier.clickable { navigate("lesson:${unit.number}:${lesson.id}") }
+             )
+@@
+-                Text("${lesson.number} ${lesson.titleEn}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+-                Text(lesson.titleTa, style = MaterialTheme.typography.titleLarge)
++                Text(
++                    "${lesson.number} ${if (mode == LanguageMode.TAMIL) lesson.titleTa else lesson.titleEn}",
++                    style = MaterialTheme.typography.headlineSmall,
++                    fontWeight = FontWeight.Bold
++                )
+                 Spacer(Modifier.height(12.dp))
+                 LanguageSelector(mode, onMode)
+@@
+-            if (mode != LanguageMode.TAMIL) {
++            if (mode == LanguageMode.ENGLISH) {
+                 item { SectionLabel("English") }
+                 items(englishBlocks) { NativeBlock(it) }
+             }
+-            if (mode != LanguageMode.ENGLISH) {
++            if (mode == LanguageMode.TAMIL) {
+                 item { SectionLabel("தமிழ்") }
+                 items(tamilBlocks) { NativeBlock(it) }
+             }
+@@
+ private fun LanguageSelector(mode: LanguageMode, onMode: (LanguageMode) -> Unit) {
+-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-        FilterChip(selected = mode == LanguageMode.BOTH, onClick = { onMode(LanguageMode.BOTH) }, label = { Text("Both") })
+-        FilterChip(selected = mode == LanguageMode.ENGLISH, onClick = { onMode(LanguageMode.ENGLISH) }, label = { Text("English") })
+-        FilterChip(selected = mode == LanguageMode.TAMIL, onClick = { onMode(LanguageMode.TAMIL) }, label = { Text("தமிழ்") })
+-    }
++    CompactLanguageSwitch(mode = mode, onMode = onMode)
+ }
+--- a/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/SimulationScreen.kt
++++ b/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/SimulationScreen.kt
+@@
+-fun SimulationScreen() {
++fun SimulationScreen(language: LanguageMode) {
+     LazyColumn(
+@@
+         item {
+-            Text("Interactive learning tools", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+-            Text("ஊடாடும் கற்றல் கருவிகள்", style = MaterialTheme.typography.titleMedium)
+-            Text(
+-                "These simplified tools support concept learning; they are educational models, not professional prediction tools.",
+-                style = MaterialTheme.typography.bodyMedium
+-            )
+-            Text(
+-                "இங்கு உள்ள எளிமைப்படுத்தப்பட்ட மாதிரிகள் தேர்ந்தெடுக்கப்பட்ட கருத்துகளைப் புரிந்துகொள்ள உதவுவதற்காக மட்டுமே. அவை தொழில்முறை முன்னறிவிப்பு கருவிகள் அல்ல.",
+-                style = MaterialTheme.typography.bodyMedium
+-            )
++            Text(
++                if (language == LanguageMode.TAMIL) "ஊடாடும் கற்றல் கருவிகள்" else "Interactive learning tools",
++                style = MaterialTheme.typography.headlineSmall,
++                fontWeight = FontWeight.Bold
++            )
++            Text(
++                if (language == LanguageMode.TAMIL)
++                    "இவை கருத்துகளைப் புரிந்துகொள்ள உதவும் கல்வி மாதிரிகள்; தொழில்முறை முன்னறிவிப்பு கருவிகள் அல்ல."
++                else
++                    "These simplified tools support concept learning; they are educational models, not professional prediction tools.",
++                style = MaterialTheme.typography.bodyMedium
++            )
+         }
++        item { ClimateEventsCard(language) }
+         item { GreenhouseCard() }
