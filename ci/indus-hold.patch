@@ -250,3 +250,12 @@
  @Composable
  fun EnvironmentalStudiesApp() {
      val context = LocalContext.current
+--- a/app/src/main/res/values/themes.xml
++++ b/app/src/main/res/values/themes.xml
+@@ -6,6 +6,5 @@
+         <item name="android:navigationBarColor">@android:color/transparent</item>
+         <item name="android:statusBarColor">@android:color/transparent</item>
+         <item name="android:windowLightStatusBar">true</item>
+-        <item name="android:windowLightNavigationBar">true</item>
+     </style>
+ </resources>
