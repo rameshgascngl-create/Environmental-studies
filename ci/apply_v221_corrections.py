@@ -473,6 +473,93 @@ for num,refs in redundant_en.items():
         changes.append((num,"english","removed redundant English-only figure while retaining equivalent concept visual"))
         visual_changes.append((num,"EN","removed redundant figure resource: "+", ".join(sorted(refs))))
 
+
+# Final residual editorial corrections found by exact v2.2.1 artifact review.
+# These are wording/consistency fixes only; no syllabus or feature changes.
+
+# 3.3 — remove a duplicated word in the biodiversity fact table.
+l=find_lesson("3.3")
+for b in l["tamil"]:
+    if isinstance(b.get("rows"),list):
+        b["rows"]=[
+            [cell.replace("இந்தியா மிகுந்த உயிரிய பல்வகைத்தன்மை கொண்ட நாடு கொண்ட நாடுகளில் ஒன்று.",
+                          "இந்தியா மிகுந்த உயிரிய பல்வகைத்தன்மை கொண்ட நாடுகளில் ஒன்று.")
+             if isinstance(cell,str) else cell for cell in row]
+            for row in b["rows"]
+        ]
+
+# 3.4 — retain one concise memory statement instead of repeating the full visual explanation.
+l=find_lesson("3.4")
+for b in l["tamil"]:
+    if b.get("kind")=="visual_or_feature" and (b.get("text") or "").startswith("நினைவில் கொள்க:"):
+        b["text"]="நினைவில் கொள்க: இயற்கை வாழிடப் பாதுகாப்பும் (in-situ) வாழிடத்திற்கு வெளியேயான பாதுகாப்பும் (ex-situ) ஒன்றுக்கொன்று துணைபுரியும் பாதுகாப்பு அணுகுமுறைகள்."
+        changes.append(("3.4","tamil","removed duplicated protection-method memory explanation"))
+
+# 4.2 — polish CPCB reference heading and neutral reference wording.
+l=find_lesson("4.2")
+for b in l["tamil"]:
+    if "CPCB" in (b.get("title") or "") and "தேசிய சுற்றுப்புறக் காற்றுத் தரநிலைகள்" in (b.get("title") or ""):
+        b["title"]="மத்திய மாசுக் கட்டுப்பாட்டு வாரியத்தின் (CPCB) தேசிய சுற்றுப்புறக் காற்றுத் தரநிலைகள்: தேர்ந்தெடுக்கப்பட்ட குறிப்பு மதிப்புகள்"
+    if isinstance(b.get("text"),str):
+        b["text"]=b["text"].replace(
+            "இவை 2009 CPCB NAAQS-இன் தேர்ந்தெடுக்கப்பட்ட மதிப்புகள்.",
+            "இவை 2009 CPCB தேசிய சுற்றுப்புறக் காற்றுத் தரநிலைகளில் (NAAQS) இருந்து தேர்ந்தெடுக்கப்பட்ட குறிப்பு மதிப்புகள்."
+        )
+changes.append(("4.2","tamil","polished CPCB NAAQS heading and reference wording"))
+
+# 4.3 — enforce the Tamil Nadu textbook term in the lesson title itself.
+l=find_lesson("4.3")
+l["titleTa"]="நீர் மாசுபாடும் மிகை உணவூட்டமும் (Eutrophication)"
+changes.append(("4.3","tamil","fixed lesson title to மிகை உணவூட்டம் (Eutrophication)"))
+
+# 5.4 — Tamil-first names for ozone-depleting chemicals while retaining useful English terms.
+l=find_lesson("5.4")
+def polish_ozone_chemicals(s):
+    return (s
+        .replace("CFCs, halons, methyl bromide, carbon tetrachloride மற்றும் HCFCs",
+                 "CFCs, ஹாலோன்கள் (halons), மீத்தில் புரோமைடு (methyl bromide), கார்பன் டெட்ராகுளோரைடு (carbon tetrachloride) மற்றும் HCFCs")
+        .replace("மாண்ட்ரியல் ஒப்பந்தம்", "மாண்ட்ரியல் நெறிமுறை"))
+l["tamil"]=walk_strings(l["tamil"],polish_ozone_chemicals)
+changes.append(("5.4","tamil","made ozone-depleting chemical names Tamil-first"))
+
+# 8.3 — Tamil-first treaty/event names; retain official English titles in parentheses where useful.
+l=find_lesson("8.3")
+agreement_names={
+    "Ramsar ஈரநில ஒப்பந்தம்":"ராம்சார் ஈரநில ஒப்பந்தம் (Ramsar Convention)",
+    "Stockholm மனிதச் சுற்றுச்சூழல் ஐ.நா. மாநாடு":"ஸ்டாக்ஹோம் மனிதச் சுற்றுச்சூழல் ஐ.நா. மாநாடு (Stockholm Conference)",
+    "Vienna Convention":"வியன்னா ஒப்பந்தம் (Vienna Convention)",
+    "Montreal Protocol":"மாண்ட்ரியல் நெறிமுறை (Montreal Protocol)",
+    "Kyoto Protocol":"கியோட்டோ நெறிமுறை (Kyoto Protocol)",
+    "Paris Agreement":"பாரிஸ் ஒப்பந்தம் (Paris Agreement)",
+}
+for b in l["tamil"]:
+    if isinstance(b.get("rows"),list):
+        new_rows=[]
+        for row in b["rows"]:
+            row=[agreement_names.get(cell,cell) if isinstance(cell,str) else cell for cell in row]
+            row=[
+                cell.replace("Rio Earth Summit","ரியோ புவி உச்சி மாநாடு (Rio Earth Summit)")
+                    .replace("NDCs மையமாகும்","தேசிய அளவில் தீர்மானிக்கப்பட்ட பங்களிப்புகள் (NDCs) மையமாகும்")
+                if isinstance(cell,str) else cell
+                for cell in row
+            ]
+            new_rows.append(row)
+        b["rows"]=new_rows
+changes.append(("8.3","tamil","made international agreement and summit names Tamil-first"))
+
+# 9.1 — Tamil-first case-study names and chemical terminology.
+l=find_lesson("9.1")
+for b in l["tamil"]:
+    if b.get("kind")=="supplemental":
+        b["text"]=(
+            "போபால் வாயுப் பேரிடர் (Bhopal gas disaster) — 2–3 டிசம்பர் 1984: தொழிற்சாலை பாதுகாப்பு, மெத்தில் ஐசோசயனேட் (methyl isocyanate) வெளிப்பாடு, அவசரத் தயாரிப்பு மற்றும் சுற்றுச்சூழல் சுகாதாரம். "
+            "கங்கை செயல் திட்டம் (Ganga Action Plan) — 1985: ஆற்றுமாசு கட்டுப்பாடு, கழிவுநீர் சிகிச்சை மற்றும் நிறுவன மேலாண்மை சவால்கள். "
+            "சைலன்ட் வேலி (Silent Valley) — 1970கள்–1980கள்: கேரளாவின் வெப்பமண்டல எப்போதும் பசுமைக் காடு மற்றும் நீர்மின் திட்டத்தைச் சுற்றிய பாதுகாப்புப் போராட்டம். "
+            "சிப்கோ இயக்கம் (Chipko movement) — 1970கள்: இமயமலைப் பகுதிகளில் சமூக அடிப்படையிலான காடு பாதுகாப்பு இயக்கம்."
+        )
+changes.append(("9.1","tamil","made Indian case-study names Tamil-first and polished terminology"))
+
+
 # Ensure title/terminology pass after specific rewrites.
 for unit in book["units"]:
     unit["titleTa"]=norm_ta(unit.get("titleTa",""))
@@ -483,6 +570,29 @@ for unit in book["units"]:
             if b.get("title")=="தமிழில் விளக்கம்": b["title"]=TA_TITLE[lesson["number"]]
             strip_heading_prefix(b)
         for b in lesson["english"]: strip_heading_prefix(b)
+
+
+# Residual editorial invariants — fail the correction build if any audited defect returns.
+all_tamil_visible=[]
+for unit in book["units"]:
+    for lesson in unit["lessons"]:
+        all_tamil_visible.append(lesson.get("titleTa",""))
+        for b in lesson["tamil"]:
+            for _,val in visible_strings(b):
+                all_tamil_visible.append(val)
+tamil_corpus="\n".join(all_tamil_visible)
+
+assert find_lesson("4.3")["titleTa"]=="நீர் மாசுபாடும் மிகை உணவூட்டமும் (Eutrophication)"
+assert "இந்தியா மிகுந்த உயிரிய பல்வகைத்தன்மை கொண்ட நாடு கொண்ட நாடுகளில் ஒன்று." not in tamil_corpus
+assert "முக்கிய மத்திய மாசுக் கட்டுப்பாட்டு வாரியத்தின்" not in tamil_corpus
+assert "Ramsar ஈரநில ஒப்பந்தம்" not in tamil_corpus
+assert "Stockholm மனிதச் சுற்றுச்சூழல் ஐ.நா. மாநாடு" not in tamil_corpus
+assert "CFCs, halons, methyl bromide, carbon tetrachloride" not in tamil_corpus
+assert "Bhopal வாயு பேரிடர்" not in tamil_corpus
+assert "Ganga Action Plan —" not in tamil_corpus
+assert "Silent Valley —" not in tamil_corpus
+assert "Chipko —" not in tamil_corpus
+
 
 # Version identity: correction-only patch release.
 s=BUILD.read_text(encoding="utf-8")
