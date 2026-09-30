@@ -1,0 +1,50 @@
+assert lesson_en_titles_before=={l['id']:l.get('titleEn','') for u in data['units'] for l in u['lessons']}, 'English lesson titles changed'
+figures_after={
+    l['id']:[(b.get('kind'),b.get('figure'),b.get('resource'),b.get('src')) for b in l['tamil']]
+    for u in data['units'] for l in u['lessons']
+}
+assert figures_before==figures_after, 'Tamil figure/resource routing changed'
+
+assert len(data['units'])==9
+assert sum(len(u['lessons']) for u in data['units'])==46
+assert all(l.get('titleTa','').strip() for u in data['units'] for l in u['lessons'])
+
+# Collect visible Tamil strings.
+def visible_strings():
+    for u in data['units']:
+        yield u.get('titleTa','')
+        for l in u['lessons']:
+            yield l.get('titleTa','')
+            for b in l['tamil']:
+                for k in ('title','text','caption'):
+                    if isinstance(b.get(k),str): yield b[k]
+                for x in b.get('items') or []:
+                    if isinstance(x,str): yield x
+                for row in b.get('rows') or []:
+                    for x in row:
+                        if isinstance(x,str): yield x
+corpus='\n'.join(visible_strings())
+for forbidden in [
+    'காட்சி வழிக் கற்றல்','செயல்முறையும் எடுத்துக்காட்டும்','நினைவில் கொள்க:',
+    'சிந்தித்துப் பாருங்கள்:','கருத்தின் சாரம்:','பசுமை இல்ல','துண்டாதலும்',
+    'இரவு இரவு','மீத்தில் புரோமைடு','மாண்ட்ரியல் ஒப்பந்தம்','சூழியலோ',
+    'வளிக்கோளத்திலிருந்து','பொருட்களையும் பொருட்களையும்','அபாயக் காரணி ≠',
+    'பேரிடர் இடர்','மட்குரமாக்கல்','பாதிப்புணர்திறன்'
+]:
+    assert forbidden not in corpus, forbidden
+
+# Explicit canonical-term gates.
+assert lesson('u3l1')['titleTa']=='உயிரிய பல்வகைத்தன்மையின் அடிப்படைகள்'
+assert 'மரபியல் பல்வகைத்தன்மை' in lesson('u3l1')['tamil'][0]['text']
+assert 'சிற்றின பல்வகைத்தன்மை' in lesson('u3l1')['tamil'][0]['text']
+assert 'சூழல் உள் பாதுகாப்பு' in lesson('u3l4')['tamil'][0]['text']
+assert 'சூழல் வெளிப் பாதுகாப்பு' in lesson('u3l4')['tamil'][0]['text']
+assert 'பசுமைக்குடில் விளைவு' in lesson('u5l1')['titleTa']
+assert lesson('u7l3')['tamil'][0]['text'].startswith('முக்கியக் கலைச்சொற்கள்: இடர் · வெளிப்பாடு')
+assert 'இடர் · வெளிப்பாடு · அபாயம்' in lesson('u4l8')['tamil'][0]['text']
+
+# All visual-learning blocks should now read as complete prose rather than generated concatenations.
+for lid,(idx,_) in visual_text.items():
+    txt=lesson(lid)['tamil'][idx].get('text','')
+    assert txt.startswith('படக்கருத்து:'), (lid,idx,txt[:40])
+    assert len(txt.split())>=12, (lid,idx)
