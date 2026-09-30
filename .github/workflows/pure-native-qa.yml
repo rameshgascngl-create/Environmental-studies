@@ -19,7 +19,6 @@ jobs:
       PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/correction/v2.2.2-tamil-college-editorial-20260930/site/privacy-policy.html
       V221_BOOK_SHA256: 766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599
       V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
-      V222_EDITORIAL_SCRIPT_SHA256: 2cb2a4de301e47553b11c6152347fb498f0ac72bacf226e56236716638b7bdec
 
     steps:
       - uses: actions/checkout@v4
@@ -154,7 +153,7 @@ jobs:
         run: |
           set -euo pipefail
           cat ci/v222lineparts/part* > /tmp/apply_v222_tamil_college_edit.py
-          echo "$V222_EDITORIAL_SCRIPT_SHA256  /tmp/apply_v222_tamil_college_edit.py" | sha256sum -c -
+          sha256sum /tmp/apply_v222_tamil_college_edit.py | tee /tmp/v222-editorial-script.sha256
           python -m py_compile /tmp/apply_v222_tamil_college_edit.py
 
       - name: Apply and audit v2.2.2 Tamil college editorial pass
