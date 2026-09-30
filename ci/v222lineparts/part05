@@ -1,0 +1,50 @@
+                    s=s.replace('இனப் பன்மை','சிற்றின பல்வகைத்தன்மை')
+                    s=s.replace('சூழ்நிலை மண்டலப் பன்மை','சூழ்நிலை மண்டல பல்வகைத்தன்மை')
+                    b[k]=s
+
+# ---------- Tamil SVG terminology corrections ----------
+svg_replacements={
+    'பசுமை இல்ல விளைவு':'பசுமைக்குடில் விளைவு',
+    'பசுமை இல்ல வாயுக்கள்':'பசுமைக்குடில் வாயுக்கள்',
+    'பசுமை இல்ல':'பசுமைக்குடில்',
+    'கழிவு உருவாகும் இடங்களை வரைபடமிடு':'கழிவு உருவாகும் இடங்களை வரைபடமிடுதல்',
+    'கழிவை அளவிடு':'கழிவை அளவிடுதல்',
+    'வகைப்படுத்து':'வகைப்படுத்துதல்',
+    'காரணங்களைப் பகுப்பாய்வு செய்':'காரணங்களைப் பகுப்பாய்வு செய்தல்',
+    'செயல் &':'நடவடிக்கை &',
+    'நீர் மூலங்களை அடையாளம் காண்':'நீர் மூலங்களை அடையாளம் காணுதல்',
+    'கசிவு மற்றும் வீணாக்கத்தை கண்டறி':'கசிவு மற்றும் வீணாக்கத்தைக் கண்டறிதல்',
+    'மழைநீரை கண்காணி':'மழைநீரைக் கண்காணித்தல்',
+    'சேமி & கண்காணி':'சேமித்தல் & கண்காணித்தல்',
+    'இடத்தை வரையறு':'இடத்தை வரையறுத்தல்',
+    'பதிவு':'பதிவுசெய்தல்',
+    'மனிதச் செயல்பாடுகளால் ஏற்படும் அழுத்தங்களைப் பதிவு செய்':'மனிதச் செயல்பாடுகளால் ஏற்படும் அழுத்தங்களைப் பதிவுசெய்தல்',
+    'மீண்டும் அளந்து':'மீண்டும் அளவிட்டு',
+    'ஒப்பிடு':'ஒப்பிடுதல்',
+    'இலக்கு அமை':'இலக்கு அமைத்தல்',
+    'செயல் மற்றும் பொறுப்பை நிர்ணயி':'நடவடிக்கை மற்றும் பொறுப்பை நிர்ணயித்தல்',
+    'முன்னேற்றக் குறியீட்டைக் கண்காணி':'முன்னேற்றக் குறியீட்டைக் கண்காணித்தல்',
+    'மறுஆய்வு & மேம்பாடு':'மறுஆய்வு & மேம்படுத்தல்',
+}
+svg_changed=[]
+for svg in sorted(RAW.glob('*_ta.svg')):
+    s=svg.read_text(encoding='utf-8')
+    old=s
+    for a,b in svg_replacements.items(): s=s.replace(a,b)
+    if s!=old:
+        ET.fromstring(s)
+        svg.write_text(s,encoding='utf-8')
+        svg_changed.append(svg.name)
+
+# ---------- Version ----------
+if GRADLE.exists():
+    s=GRADLE.read_text(encoding='utf-8')
+    s=s.replace('versionCode = 20201','versionCode = 20202')
+    s=s.replace('versionName = "2.2.1"','versionName = "2.2.2"')
+    GRADLE.write_text(s,encoding='utf-8')
+
+# ---------- Integrity / audit gates ----------
+english_after={l['id']: l['english'] for u in data['units'] for l in u['lessons']}
+english_hash_after=stable_hash(english_after)
+assert english_hash_before==english_hash_after, 'English lesson payload changed'
+assert unit_en_before==[u.get('titleEn','') for u in data['units']], 'English unit titles changed'
