@@ -1,0 +1,50 @@
+    'இரவு இரவு 10:00':'இரவு 10:00',
+    'பாதிப்புணர்திறன்':'பாதிப்புக்குள்ளாகும் தன்மை',
+    'சல்பர் டைஆக்சைடு':'சல்பர் டையாக்சைடு',
+    'மட்குரமாக்கல்':'உரமாக்கல்',
+}
+
+def normalize_text(s):
+    if not isinstance(s,str):
+        return s
+    for old,new in PREFIX_REPLACEMENTS.items():
+        if s.startswith(old):
+            s=new+s[len(old):]
+    for old,new in PHRASE_REPLACEMENTS.items():
+        s=s.replace(old,new)
+    return s
+
+for unit in data['units']:
+    unit['titleTa']=normalize_text(unit.get('titleTa',''))
+    for l in unit['lessons']:
+        l['titleTa']=normalize_text(l.get('titleTa',''))
+        for b in l['tamil']:
+            if b.get('title')=='மேலும் ஆழமாக':
+                b['title']='விரிவான விளக்கம்'
+            elif b.get('title')=='தமிழ்நாடு தொடர்பு':
+                b['title']='தமிழ்நாடு எடுத்துக்காட்டு'
+            else:
+                if isinstance(b.get('title'),str): b['title']=normalize_text(b['title'])
+            for key in ('text','caption'):
+                if isinstance(b.get(key),str): b[key]=normalize_text(b[key])
+            if isinstance(b.get('items'),list):
+                b['items']=[normalize_text(v) if isinstance(v,str) else v for v in b['items']]
+            if isinstance(b.get('rows'),list):
+                b['rows']=[[normalize_text(v) if isinstance(v,str) else v for v in row] for row in b['rows']]
+
+# ---------- College-level lesson title and canonical terminology corrections ----------
+title_overrides={
+    'u2l3':'உயிர்–புவி–வேதியியல் சுழற்சிகள்',
+    'u3l1':'உயிரிய பல்வகைத்தன்மையின் அடிப்படைகள்',
+    'u3l4':'உயிரிய பல்வகைத்தன்மைப் பாதுகாப்பு: சூழல் உள் மற்றும் சூழல் வெளிப் பாதுகாப்பு',
+    'u4l1':'சுற்றுச்சூழல் மாசுபாட்டின் அடிப்படைகள்',
+    'u5l1':'வானிலை, காலநிலை மற்றும் பசுமைக்குடில் விளைவு',
+    'u5l3':'காலநிலை மாற்றத் தணித்தலும் தழுவலும்',
+}
+for lid,t in title_overrides.items(): lesson(lid)['titleTa']=t
+
+# Biodiversity terminology aligned with Tamil Nadu higher-secondary biology register.
+l=lesson('u3l1')
+l['tamil'][0]['text']='முக்கியக் கலைச்சொற்கள்: மரபியல் பல்வகைத்தன்மை · சிற்றின பல்வகைத்தன்மை · சூழ்நிலை மண்டல பல்வகைத்தன்மை'
+l['tamil'][1]['text']='ஒரே சிற்றினத்திற்குள் காணப்படும் மரபியல் வேறுபாடு, பல்வேறு சிற்றினங்களுக்கிடையேயான வேறுபாடு மற்றும் பலவகை சூழ்நிலை மண்டலங்களுக்கிடையேயான வேறுபாடு ஆகிய அனைத்தும் உயிரிய பல்வகைத்தன்மையில் அடங்கும். உணவு, மருந்து, மகரந்தச் சேர்க்கை, மண் உருவாக்கம், ஊட்டச்சத்து சுழற்சி மற்றும் காலநிலை ஒழுங்குபடுத்தல் போன்ற சூழலியல் நன்மைகளுக்கு உயிரிய பல்வகைத்தன்மை அடிப்படையாக உள்ளது.'
+l['tamil'][2]['text']='மரபியல் பல்வகைத்தன்மை ஒரு சிற்றினத்திற்குள் காணப்படும் மரபணு மற்றும் மரபியல் வேறுபாடுகளை குறிக்கிறது. சிற்றின பல்வகைத்தன்மை ஒரு பகுதியில் உள்ள சிற்றினங்களின் எண்ணிக்கையையும் அவற்றின் ஒப்பீட்டு மிகுதியையும் உள்ளடக்குகிறது. வாழிடங்கள், உயிர்ச் சமூகங்கள் மற்றும் சூழ்நிலை மண்டலங்களுக்கிடையேயான வேறுபாடு சூழ்நிலை மண்டல பல்வகைத்தன்மை ஆகும். இம்மூன்று நிலைகளும் சூழ்நிலை மண்டலச் செயல்பாடுகளுக்கும் மனித நலனுக்கும் அடிப்படையாக உள்ளன. எடுத்துக்காட்டாக, பாரம்பரியப் பயிர் வகைகளில் வறட்சி அல்லது நோய் எதிர்ப்பிற்கு பயன்படும் மரபியல் வேறுபாடுகள் இருக்கலாம்; அவற்றின் இழப்பு எதிர்காலத் தேர்வு மற்றும் பயன்பாட்டு வாய்ப்புகளைச் சுருக்கலாம்.'
