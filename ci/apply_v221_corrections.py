@@ -578,8 +578,17 @@ for unit in book["units"]:
     for lesson in unit["lessons"]:
         all_tamil_visible.append(lesson.get("titleTa",""))
         for b in lesson["tamil"]:
-            for _,val in visible_strings(b):
-                all_tamil_visible.append(val)
+            for key in ("title","text","caption"):
+                val=b.get(key)
+                if isinstance(val,str) and val.strip():
+                    all_tamil_visible.append(val)
+            for val in (b.get("items") or []):
+                if isinstance(val,str):
+                    all_tamil_visible.append(val)
+            for row in (b.get("rows") or []):
+                for val in row:
+                    if isinstance(val,str):
+                        all_tamil_visible.append(val)
 tamil_corpus="\n".join(all_tamil_visible)
 
 assert find_lesson("4.3")["titleTa"]=="நீர் மாசுபாடும் மிகை உணவூட்டமும் (Eutrophication)"
