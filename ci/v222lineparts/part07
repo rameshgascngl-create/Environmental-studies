@@ -1,0 +1,67 @@
+
+BOOK.write_text(json.dumps(data,ensure_ascii=False,indent=2)+"\n",encoding='utf-8')
+book_sha=hashlib.sha256(BOOK.read_bytes()).hexdigest()
+
+# Re-open and validate JSON after write.
+json.loads(BOOK.read_text(encoding='utf-8'))
+for svg in RAW.glob('*.svg'):
+    ET.fromstring(svg.read_text(encoding='utf-8'))
+
+# Audit remaining Latin-script tokens for manual review; proper names, units and standard abbreviations are intentionally retained.
+remaining_latin=[]
+for u in data['units']:
+    for l in u['lessons']:
+        for bi,b in enumerate(l['tamil']):
+            for k in ('title','text','caption'):
+                v=b.get(k)
+                if isinstance(v,str) and re.search(r'[A-Za-z]',v):
+                    remaining_latin.append({'lesson':l['id'],'block':bi,'field':k,'text':v})
+            for ri,row in enumerate(b.get('rows') or []):
+                for ci,v in enumerate(row):
+                    if isinstance(v,str) and re.search(r'[A-Za-z]',v):
+                        remaining_latin.append({'lesson':l['id'],'block':bi,'field':f'rows[{ri}][{ci}]','text':v})
+
+audit={
+    'versionName':'2.2.2',
+    'versionCode':20202,
+    'units':len(data['units']),
+    'lessons':sum(len(u['lessons']) for u in data['units']),
+    'english_payload_sha256_before':english_hash_before,
+    'english_payload_sha256_after':english_hash_after,
+    'english_payload_unchanged':english_hash_before==english_hash_after,
+    'figure_routing_unchanged':figures_before==figures_after,
+    'tamil_svg_files_changed':svg_changed,
+    'remaining_latin_script_entries':remaining_latin,
+    'book_content_sha256':book_sha,
+    'forbidden_phrase_counts':{x:corpus.count(x) for x in [
+        'காட்சி வழிக் கற்றல்','செயல்முறையும் எடுத்துக்காட்டும்','நினைவில் கொள்க:',
+        'சிந்தித்துப் பாருங்கள்:','கருத்தின் சாரம்:','பசுமை இல்ல','துண்டாதலும்','இரவு இரவு'
+    ]},
+}
+Path('V222_TAMIL_COLLEGE_AUDIT.json').write_text(json.dumps(audit,ensure_ascii=False,indent=2)+"\n",encoding='utf-8')
+
+changelog='''# Environmental Studies v2.2.2 — Tamil College-Level Editorial Changelog
+
+This pass is limited to Tamil-language editorial quality, Tamil Nadu textbook terminology alignment, and Tamil SVG wording. English lessons, lesson order, scientific figures/resources, navigation, architecture, privacy, permissions and network behavior are intentionally unchanged.
+
+## Main corrections
+- Replaced school-like/machine-generated scaffolding with formal textbook-register headings: `முக்கியக் கலைச்சொற்கள்`, `முக்கியக் கருத்து`, `சிந்தனை வினா`, `பாடச்சுருக்கம்`, `விரிவான விளக்கம்`.
+- Rewrote 22 concatenated or duplicated visual-learning paragraphs as complete scientific Tamil prose.
+- Standardized biodiversity terminology to `மரபியல் பல்வகைத்தன்மை`, `சிற்றின பல்வகைத்தன்மை`, `சூழ்நிலை மண்டல பல்வகைத்தன்மை`.
+- Standardized conservation terminology to `சூழல் உள் பாதுகாப்பு` and `சூழல் வெளிப் பாதுகாப்பு`.
+- Standardized climate terminology to `பசுமைக்குடில் விளைவு` / `பசுமைக்குடில் வாயு`.
+- Standardized hazard/risk terminology: `இடர்` (hazard), `அபாயம்` (risk), `வெளிப்பாடு`, `பாதிப்புக்குள்ளாகும் தன்மை`, `தயார்நிலை`, `மீள்தன்மை`.
+- Corrected duplicated words, malformed phrases, inconsistent transliterations, and several overly literal constructions.
+- Converted imperative-heavy Tamil labels in fieldwork SVGs into formal nominal textbook labels where appropriate.
+
+## Integrity gates
+- 9 units and 46 lessons retained.
+- English lesson payload hash is identical before and after this Tamil-only pass.
+- Tamil figure/resource routing is unchanged.
+- SVG XML parses successfully after terminology edits.
+'''
+Path('V222_TAMIL_EDITORIAL_CHANGELOG.md').write_text(changelog,encoding='utf-8')
+print('V222_BOOK_SHA256',book_sha)
+print('ENGLISH_PAYLOAD_SHA256',english_hash_after)
+print('SVG_CHANGED',len(svg_changed),','.join(svg_changed))
+print('REMAINING_LATIN_ENTRIES',len(remaining_latin))
