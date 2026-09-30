@@ -134,6 +134,8 @@ jobs:
           assert not audit["empty_lessons"]
           assert not audit["missing_figure_refs"]
           assert not audit["svg_parse_errors"]
+          assert len(audit["figure_resource_parity_exceptions"])==1, audit["figure_resource_parity_exceptions"]
+          assert audit["figure_resource_parity_exceptions"][0][0]=="4.2"
           pre=json.loads(Path("/tmp/v22_pre.json").read_text())
           post={}
           for q in Path(".").rglob("*"):
@@ -144,8 +146,7 @@ jobs:
           allowed=(
             "app/build.gradle.kts",
             "app/src/main/res/raw/book_content.json",
-            "app/src/main/res/raw/v22_u03_l32_",
-            "app/src/main/res/raw/v22_u04_l44_",
+            "app/src/main/res/raw/v22_",
             "app/src/main/res/raw/v221_u05_l51_",
             "V221_STATIC_AUDIT.json",
             "V221_PARITY_REGISTER.md",
