@@ -363,6 +363,114 @@ for lang,res,title,cap in [
     l[lang].insert(idx+1,{"kind":"svg_figure","title":title,"text":"","items":[],"rows":[],"figure":res,"caption":cap})
 visual_changes.append(("5.1","EN/TA","replaced vague labeled greenhouse plate in lesson flow with precise absorption/re-emission SVG; original PNG assets preserved"))
 
+
+# Complete Tamil SVG editorial pass across all v2.2 Tamil diagrams.
+SVG_TA_REPL=[
+ ("உயிரினப் பன்மை","உயிரிய பல்வகைத்தன்மை"),
+ ("ஆக்கிரமிப்பு அயல் இனங்கள்","ஊடுருவும் அயல் இனங்கள்"),
+ ("அமிலத் திணிவு","அமிலப் படிவு"),
+ ("ஈர + உலர் திணிவு","ஈரப் படிவு + உலர் படிவு"),
+ ("பாதிப்புணர்திறனைப் பொறுத்து","பாதிப்புக்குள்ளாகும் தன்மையைப் பொறுத்து"),
+ ("உயிரி மருத்துவக் கழிவு","உயிரிமருத்துவக் கழிவு"),
+ ("வீணைத் தவிர்","வீணாக்கத்தைத் தவிர்"),
+ ("திறமையான பயன்பாடு","திறன் மிக்க பயன்பாடு"),
+ ("மூலங்களை வரைபடு","கழிவு உருவாகும் இடங்களை வரைபடமிடு"),
+ ("காரணம் பகுப்பாய்வு","காரணங்களைப் பகுப்பாய்வு செய்"),
+ ("நீர்ப் பயன்பாட்டு கவனிப்பு","நீர்ப் பயன்பாடு மற்றும் மழைநீர் கண்காணிப்பு"),
+ ("நீர் வரவை அறி","நீர் மூலங்களை அடையாளம் காண்"),
+ ("கசிவு/இழப்பை காண்","கசிவு மற்றும் வீணாக்கத்தை கண்டறி"),
+ ("மனித அழுத்தம் பதிவு","மனிதச் செயல்பாடுகளால் ஏற்படும் அழுத்தங்களைப் பதிவு செய்"),
+ ("செயல் பொறுப்பு","செயல் மற்றும் பொறுப்பை நிர்ணயி"),
+ ("குறியீடு கண்காணி","முன்னேற்றக் குறியீட்டைக் கண்காணி"),
+ ("கழிவு & வெளியீடுகள்","கழிவுகள் & உமிழ்வுகள்"),
+]
+svg_ta_changed=[]
+for p in sorted(RAW.glob("v22_*_ta.svg")):
+    s=p.read_text(encoding="utf-8")
+    old=s
+    for a,b in SVG_TA_REPL:
+        s=s.replace(a,b)
+    if s!=old:
+        p.write_text(s,encoding="utf-8")
+        svg_ta_changed.append(p.name)
+if svg_ta_changed:
+    visual_changes.append(("ALL","TA SVG","textbook-register/grammar normalization: "+", ".join(svg_ta_changed)))
+
+# Neutral textbook register: remove residual coaching phrasing without changing facts.
+for num in ("8.2","8.3","9.1"):
+    l=find_lesson(num)
+    repls=[
+      ("தேர்வு குறிப்பு.","முக்கிய குறிப்பு."),
+      ("தேர்வுக்கு பயன்படும்","கற்றலுக்கு பயன்படும்"),
+      ("தேர்வுக்கு முக்கியமான கருத்து","மைய கருத்து"),
+      ("நினைவில் கொள்ள வேண்டியது","மைய நோக்கம்"),
+      ("தேர்வுகளுக்கு முக்கிய","கற்றலுக்கு முக்கிய"),
+    ]
+    def polish_ta(s):
+        for a,b in repls: s=s.replace(a,b)
+        return s
+    l["tamil"]=walk_strings(l["tamil"],polish_ta)
+
+# Improve Tamil scientific register in regulatory/reference blocks.
+l=find_lesson("4.3")
+def polish_water_quality(s):
+    repl=[
+      ("Class A:","வகுப்பு A (Class A):"),
+      ("Class B","வகுப்பு B (Class B)"),
+      ("Class C:","வகுப்பு C (Class C):"),
+      ("chloride","குளோரைடு"),
+      ("sulphate","சல்பேட்"),
+      ("fluoride","ஃபுளோரைடு"),
+      ("nitrate","நைட்ரேட்"),
+      ("relaxation இல்லை","தளர்வு இல்லை"),
+      ("oxidisable பொருட்கள்","ஆக்சிகரிக்கக்கூடிய பொருட்கள்"),
+    ]
+    for a,b in repl: s=s.replace(a,b)
+    return s
+l["tamil"]=walk_strings(l["tamil"],polish_water_quality)
+
+l=find_lesson("4.5")
+def polish_noise_rules(s):
+    return (s
+      .replace("Noise Pollution (Regulation and Control) Rules, 2000 படி",
+               "ஒலி மாசுபாடு (ஒழுங்குமுறை மற்றும் கட்டுப்பாடு) விதிகள், 2000 (Noise Pollution (Regulation and Control) Rules, 2000) படி")
+      .replace("6:00 a.m.–10:00 p.m.","காலை 6:00–இரவு 10:00")
+      .replace("10:00 p.m.–6:00 a.m.","இரவு 10:00–காலை 6:00"))
+l["tamil"]=walk_strings(l["tamil"],polish_noise_rules)
+
+# Selective Tamil Nadu localisation where it directly strengthens the concept.
+local_examples={
+ "3.4":("தமிழ்நாடு தொடர்பு","வேடந்தாங்கல் பறவைகள் சரணாலயம் இயற்கை வாழிடத்திலேயே உயிரினங்களைப் பாதுகாக்கும் (in-situ) அணுகுமுறைக்கு ஒரு தமிழ்நாட்டு உதாரணமாகும்; விதை வங்கிகள் வாழிடத்திற்கு வெளியேயான (ex-situ) பாதுகாப்பின் உதாரணமாகும்."),
+ "7.4":("தமிழ்நாடு தொடர்பு","சென்னை போன்ற அடர்ந்த நகரங்களில் ஏரிகள், சதுப்புநிலங்கள், திறந்த நீர்வழிகள், நகர மரவளம் மற்றும் ஊடுருவக்கூடிய நிலப்பரப்புகளைப் பாதுகாப்பது மழைநீர் மேலாண்மை, வெப்பக் குறைப்பு மற்றும் உயிரியல் பல்வகைத்தன்மைக்கு உதவக்கூடும்."),
+ "9.5":("கன்னியாகுமரி உள்ளூர் எடுத்துக்காட்டு","கன்னியாகுமரி கடற்கரைப் பகுதியில் களக் கண்காணிப்பை மேற்கொள்ளும்போது கரையோர வாழிடம், கழிவு, சுற்றுலா அழுத்தம், கடற்கரைத் தாவரங்கள் மற்றும் மனிதப் பயன்பாடு ஆகியவற்றை நேரடி பார்வை மற்றும் ஊகம் எனத் தெளிவாகப் பிரித்து பதிவு செய்யலாம்."),
+}
+for num,(title,text_) in local_examples.items():
+    l=find_lesson(num)
+    if not any((b.get("title") or "")==title for b in l["tamil"]):
+        idx=next((i for i,b in enumerate(l["tamil"]) if b.get("kind")=="think_apply"),len(l["tamil"]))
+        l["tamil"].insert(idx,{"kind":"example","title":title,"text":text_,"items":[],"rows":[]})
+        changes.append((num,"tamil","added selective Tamil Nadu/local concept-support example"))
+
+# Remove redundant English-only raster figures where a later equivalent figure
+# already carries the same academic information. This reconciles figure access
+# without manufacturing duplicate Tamil artwork.
+redundant_en={
+ "2.1":{"fig_005_u02_en"},
+ "2.5":{"fig_013_u02_en"},
+ "4.3":{"fig_033_u04_en"},
+ "4.6":{"fig_038_u04_en"},
+ "5.1":{"fig_045_u05_en"},
+ "5.3":{"fig_048_u05_en"},
+ "7.3":{"fig_057_u07_en"},
+}
+for num,refs in redundant_en.items():
+    l=find_lesson(num)
+    before=len(l["english"])
+    l["english"]=[b for b in l["english"] if b.get("figure") not in refs]
+    if len(l["english"])!=before:
+        changes.append((num,"english","removed redundant English-only figure while retaining equivalent concept visual"))
+        visual_changes.append((num,"EN","removed redundant figure resource: "+", ".join(sorted(refs))))
+
 # Ensure title/terminology pass after specific rewrites.
 for unit in book["units"]:
     unit["titleTa"]=norm_ta(unit.get("titleTa",""))
@@ -412,15 +520,34 @@ for p in svgs:
         txt=p.read_text(encoding="utf-8")
         if any('\u0b80'<=ch<='\u0bff' for ch in txt): ta_svg_unicode.append(p.name)
 
-# Intentional English technical terms remaining in Tamil.
-latin=Counter()
-allow=("EIA","DRR","CPCB","MoEFCC","PM2.5","PM10","SO₂","NO₂","BOD","DO","pH","CBD","CITES","UNFCCC","IPCC","Eutrophication","Mitigation","Adaptation","Ecosystem","Biodiversity","Himalaya","Indo-Burma","Western Ghats","Sri Lanka","Sundaland","Nicobar","E-waste","Biomedical","Resilience","Hazard","Exposure","Vulnerability","Risk","Endemism","hotspot","In-situ","Ex-situ","Global warming","Climate change","Acid deposition","Ozone depletion","Greenhouse","Bioaccumulation","Biomagnification")
+# Intentional English/Latin technical terms remaining in Tamil content.
+# Inspect only learner-visible values, never JSON keys, block kinds or resource IDs.
+intentional_occurrences=[]
+def visible_strings(block):
+    vals=[]
+    for key in ("title","text","caption"):
+        if isinstance(block.get(key),str) and block.get(key).strip():
+            vals.append((key,block[key]))
+    for i,x in enumerate(block.get("items") or []):
+        if isinstance(x,str): vals.append((f"items[{i}]",x))
+    for r,row in enumerate(block.get("rows") or []):
+        for col,x in enumerate(row):
+            if isinstance(x,str): vals.append((f"rows[{r}][{col}]",x))
+    return vals
+
 for u in book["units"]:
     for l in u["lessons"]:
-        raw=json.dumps(l["tamil"],ensure_ascii=False)
-        for token in re.findall(r"[A-Za-z][A-Za-z0-9.()–-]*",raw):
-            latin[token]+=1
-remaining=sorted(latin.items(),key=lambda x:(-x[1],x[0]))
+        for bi,block in enumerate(l["tamil"]):
+            for field,val in visible_strings(block):
+                toks=re.findall(r"[A-Za-z][A-Za-z0-9.()–/-]*",val)
+                if toks:
+                    intentional_occurrences.append({
+                      "lesson":l["number"],
+                      "block_index":bi,
+                      "field":field,
+                      "tokens":sorted(set(toks)),
+                      "text":val,
+                    })
 
 audit={
  "versionName":"2.2.1","versionCode":20201,
@@ -434,7 +561,7 @@ audit={
  "tamil_svg_unicode_files":len(ta_svg_unicode),
  "png_count":len(list((APP/"src/main/res/drawable-nodpi").glob("*.png"))),
  "figure_resource_parity_exceptions":parity,
- "remaining_latin_tokens_in_tamil":remaining,
+ "remaining_intentional_english_terms_in_tamil":intentional_occurrences,
  "book_content_sha256":sha256(BOOK),
 }
 
