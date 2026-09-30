@@ -1,0 +1,50 @@
+from pathlib import Path
+import json, hashlib, re, xml.etree.ElementTree as ET
+
+ROOT=Path('.')
+BOOK=ROOT/'app/src/main/res/raw/book_content.json'
+GRADLE=ROOT/'app/build.gradle.kts'
+RAW=ROOT/'app/src/main/res/raw'
+
+data=json.loads(BOOK.read_text(encoding='utf-8'))
+
+
+def lesson(lesson_id):
+    for unit in data['units']:
+        for item in unit['lessons']:
+            if item.get('id')==lesson_id:
+                return item
+    raise KeyError(lesson_id)
+
+
+def stable_hash(obj):
+    return hashlib.sha256(json.dumps(obj,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+english_before={l['id']: l['english'] for u in data['units'] for l in u['lessons']}
+english_hash_before=stable_hash(english_before)
+figures_before={
+    l['id']:[(b.get('kind'),b.get('figure'),b.get('resource'),b.get('src')) for b in l['tamil']]
+    for u in data['units'] for l in u['lessons']
+}
+unit_en_before=[u.get('titleEn','') for u in data['units']]
+lesson_en_titles_before={l['id']:l.get('titleEn','') for u in data['units'] for l in u['lessons']}
+
+# ---------- Editorial register normalization (Tamil payload only) ----------
+PREFIX_REPLACEMENTS = {
+    'முக்கிய சொற்கள்:':'முக்கியக் கலைச்சொற்கள்:',
+    'நினைவில் கொள்க:':'முக்கியக் கருத்து:',
+    'சிந்தித்துப் பாருங்கள்:':'சிந்தனை வினா:',
+    'கருத்தின் சாரம்:':'பாடச்சுருக்கம்:',
+    'இந்திய தொடர்பு:':'இந்திய எடுத்துக்காட்டு:',
+}
+PHRASE_REPLACEMENTS = {
+    'செயல்முறையும் எடுத்துக்காட்டும் ':'எடுத்துக்காட்டாக, ',
+    'சூழியலோ':'சூழலியலோ',
+    'வளிக்கோளத்திலிருந்து':'வளிமண்டலத்திலிருந்து',
+    'உயிர்-புவி வேதியியல்':'உயிர்–புவி–வேதியியல்',
+    'உயிர்-புவி-வேதியியல்':'உயிர்–புவி–வேதியியல்',
+    'பசுமை இல்ல':'பசுமைக்குடில்',
+    'மீத்தில் புரோமைடு':'மெத்தில் புரோமைடு',
+    'மாண்ட்ரியல் ஒப்பந்தம்':'மாண்ட்ரியல் நெறிமுறை',
+    'துண்டாதலும்':'துண்டாக்கமும்',
+    'ஆக்கிரமிக்கும் அயல் இனங்கள்':'ஊடுருவும் அயல் இனங்கள்',
