@@ -1,9 +1,9 @@
-name: Environmental Studies v2.2.1 Correction QA
+name: Environmental Studies v2.2.2 Tamil College Editorial QA
 
 on:
   push:
     branches:
-      - correction/v2.2.1-tamil-editorial-scivis-20260929
+      - correction/v2.2.2-tamil-college-editorial-20260930
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,10 @@ jobs:
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
-      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/correction/v2.2.1-tamil-editorial-scivis-20260929/site/privacy-policy.html
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/correction/v2.2.2-tamil-college-editorial-20260930/site/privacy-policy.html
+      V221_BOOK_SHA256: 766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599
+      V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
+      V222_EDITORIAL_SCRIPT_SHA256: 2cb2a4de301e47553b11c6152347fb498f0ac72bacf226e56236716638b7bdec
 
     steps:
       - uses: actions/checkout@v4
@@ -24,24 +27,32 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify correction branch scope
+      - name: Verify v2.2.2 branch scope
         shell: bash
         run: |
           set -euo pipefail
-          BASE=993c43272229f4da9a77237dee7b2dc55f272869
+          BASE=28c41128c4e9867b57732a357880f2b1a637a66a
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
-          git diff --name-only "$BASE"..HEAD | tee correction-branch-files.txt
+          git diff --name-only "$BASE"..HEAD | tee v222-branch-files.txt
           python - <<'PY'
           import subprocess
-          allowed={
-            "V221_PROVENANCE.md",
-            "TAMIL_TERMINOLOGY_MASTER_V221.md",
-            "ci/apply_v221_corrections.py",
-            ".github/workflows/pure-native-qa.yml",
+          files=subprocess.check_output(
+              ["git","diff","--name-only","28c41128c4e9867b57732a357880f2b1a637a66a..HEAD"],
+              text=True
+          ).splitlines()
+          exact={
+              ".github/workflows/pure-native-qa.yml",
+              "TAMIL_TERMINOLOGY_MASTER_V222.md",
+              "V222_PROVENANCE.md",
+              "V222_TAMIL_COLLEGE_EDITORIAL_AUDIT.md",
           }
-          files=subprocess.check_output(["git","diff","--name-only","993c43272229f4da9a77237dee7b2dc55f272869..HEAD"],text=True).splitlines()
-          unexpected=[x for x in files if x not in allowed]
-          assert not unexpected,unexpected
+          unexpected=[
+              p for p in files
+              if p not in exact and not p.startswith("ci/v222lineparts/")
+          ]
+          assert not unexpected, unexpected
+          parts=sorted(p for p in files if p.startswith("ci/v222lineparts/"))
+          assert parts==[f"ci/v222lineparts/part{i:02d}" for i in range(8)], parts
           PY
 
       - name: Verify native source archive
@@ -81,11 +92,10 @@ jobs:
         run: |
           set -euo pipefail
           cp overlay/v2.1/app/build.gradle.kts native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
-          cat ci/v22lineparts/part* > ci/apply_v22_visuals.py
-          python -m py_compile ci/apply_v22_visuals.py
-          echo "V22_GENERATOR_SHA256=$(sha256sum ci/apply_v22_visuals.py | awk '{print $1}')"
+          cat ci/v22lineparts/part* > /tmp/apply_v22_visuals.py
+          python -m py_compile /tmp/apply_v22_visuals.py
           cd native-build/Environmental-Studies-v2.0.0-native
-          python ../../ci/apply_v22_visuals.py
+          python /tmp/apply_v22_visuals.py
           python - <<'PY'
           from pathlib import Path
           import json,hashlib
@@ -101,21 +111,12 @@ jobs:
           digest=hashlib.sha256(book.read_bytes()).hexdigest()
           print("V22_AUDITED_BOOK_SHA256",digest)
           assert digest=="7c8ab000ab12e69c43b1ae7723264b0d9d3f5c9506b037a4a06480230e7ebbbd",digest
-          svg=list(Path("app/src/main/res/raw").glob("v22_*.svg"))
-          png=list(Path("app/src/main/res/drawable-nodpi").glob("*.png"))
           data=json.loads(book.read_text())
-          blocks=[b for u in data["units"] for lesson in u["lessons"] for lang in ("english","tamil") for b in lesson[lang] if b.get("kind")=="svg_figure"]
-          assert len(svg)==34
-          assert len(png)>=60
-          assert len(blocks)==34
-          snap={}
-          for q in Path(".").rglob("*"):
-              if q.is_file() and "/build/" not in str(q):
-                  snap[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
-          Path("/tmp/v22_pre.json").write_text(json.dumps(snap,sort_keys=True))
+          assert len(data["units"])==9
+          assert sum(len(u["lessons"]) for u in data["units"])==46
           PY
 
-      - name: Apply v2.2.1 correction-only pass
+      - name: Reconstruct exact successful v2.2.1 correction baseline
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -124,6 +125,10 @@ jobs:
           python - <<'PY'
           import json,hashlib
           from pathlib import Path
+          book=Path("app/src/main/res/raw/book_content.json")
+          digest=hashlib.sha256(book.read_bytes()).hexdigest()
+          print("V221_RECONSTRUCTED_BOOK_SHA256",digest)
+          assert digest=="766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599",digest
           audit=json.loads(Path("V221_STATIC_AUDIT.json").read_text())
           assert audit["versionName"]=="2.2.1"
           assert audit["versionCode"]==20201
@@ -134,29 +139,79 @@ jobs:
           assert not audit["empty_lessons"]
           assert not audit["missing_figure_refs"]
           assert not audit["svg_parse_errors"]
-          assert len(audit["figure_resource_parity_exceptions"])==1, audit["figure_resource_parity_exceptions"]
-          assert audit["figure_resource_parity_exceptions"][0][0]=="4.2"
-          pre=json.loads(Path("/tmp/v22_pre.json").read_text())
+          p=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 20201' in p
+          assert 'versionName = "2.2.1"' in p
+          snap={}
+          for q in Path(".").rglob("*"):
+              if q.is_file() and "/build/" not in str(q):
+                  snap[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
+          Path("/tmp/v221_pre_v222.json").write_text(json.dumps(snap,sort_keys=True))
+          PY
+
+      - name: Assemble and verify v2.2.2 Tamil college editorial pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat ci/v222lineparts/part* > /tmp/apply_v222_tamil_college_edit.py
+          echo "$V222_EDITORIAL_SCRIPT_SHA256  /tmp/apply_v222_tamil_college_edit.py" | sha256sum -c -
+          python -m py_compile /tmp/apply_v222_tamil_college_edit.py
+
+      - name: Apply and audit v2.2.2 Tamil college editorial pass
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/apply_v222_tamil_college_edit.py
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          audit=json.loads(Path("V222_TAMIL_COLLEGE_AUDIT.json").read_text())
+          assert audit["versionName"]=="2.2.2"
+          assert audit["versionCode"]==20202
+          assert audit["units"]==9
+          assert audit["lessons"]==46
+          assert audit["english_payload_unchanged"] is True
+          assert audit["figure_routing_unchanged"] is True
+          assert audit["english_payload_sha256_before"]=="2f34a366bf6bd27f62f703284e335262c7fc1ed79e48221973532c5af93485a0"
+          assert audit["english_payload_sha256_after"]=="2f34a366bf6bd27f62f703284e335262c7fc1ed79e48221973532c5af93485a0"
+          assert audit["book_content_sha256"]=="7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e"
+          assert all(v==0 for v in audit["forbidden_phrase_counts"].values()), audit["forbidden_phrase_counts"]
+          expected_svgs=[
+              "v221_u05_l51_ta.svg",
+              "v22_u05_l52_ta.svg",
+              "v22_u09_l93_ta.svg",
+              "v22_u09_l94_ta.svg",
+              "v22_u09_l95_ta.svg",
+              "v22_u09_l96_ta.svg",
+          ]
+          assert audit["tamil_svg_files_changed"]==expected_svgs, audit["tamil_svg_files_changed"]
+          assert len(audit["remaining_latin_script_entries"])==40, len(audit["remaining_latin_script_entries"])
+          book=Path("app/src/main/res/raw/book_content.json")
+          assert hashlib.sha256(book.read_bytes()).hexdigest()=="7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e"
+
+          pre=json.loads(Path("/tmp/v221_pre_v222.json").read_text())
           post={}
           for q in Path(".").rglob("*"):
               if q.is_file() and "/build/" not in str(q):
                   post[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
           changed=sorted(p for p in set(pre)|set(post) if pre.get(p)!=post.get(p))
-          Path("V221_CHANGED_FILE_INVENTORY.txt").write_text("\n".join(changed)+"\n")
-          allowed=(
-            "app/build.gradle.kts",
-            "app/src/main/res/raw/book_content.json",
-            "app/src/main/res/raw/v22_",
-            "app/src/main/res/raw/v221_u05_l51_",
-            "V221_STATIC_AUDIT.json",
-            "V221_PARITY_REGISTER.md",
-            "V221_SCI_VIS_REGISTER.md",
-            "V221_EDITORIAL_CHANGELOG.md",
-          )
-          unexpected=[p for p in changed if not p.startswith(allowed)]
-          print("V221_CHANGED_FILES",len(changed))
+          Path("V222_CHANGED_FILE_INVENTORY.txt").write_text("\n".join(changed)+"\n")
+          expected={
+              "V222_TAMIL_COLLEGE_AUDIT.json",
+              "V222_TAMIL_EDITORIAL_CHANGELOG.md",
+              "app/build.gradle.kts",
+              "app/src/main/res/raw/book_content.json",
+              "app/src/main/res/raw/v221_u05_l51_ta.svg",
+              "app/src/main/res/raw/v22_u05_l52_ta.svg",
+              "app/src/main/res/raw/v22_u09_l93_ta.svg",
+              "app/src/main/res/raw/v22_u09_l94_ta.svg",
+              "app/src/main/res/raw/v22_u09_l95_ta.svg",
+              "app/src/main/res/raw/v22_u09_l96_ta.svg",
+          }
+          print("V222_CHANGED_FILES",len(changed))
           print("\n".join(changed))
-          assert not unexpected,unexpected
+          assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
           PY
 
       - name: Verify public Privacy Policy URL
@@ -185,7 +240,7 @@ jobs:
         run: |
           gradle --no-daemon clean :app:lintDebug :app:testDebugUnitTest :app:assembleDebug -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
 
-      - name: Inspect APK identity and offline contract
+      - name: Inspect APK identity, content identity and offline contract
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -196,8 +251,8 @@ jobs:
           "$AAPT" dump badging "$APK" | tee qa-badging.txt
           "$AAPT" dump permissions "$APK" | tee qa-permissions.txt
           grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging.txt
-          grep -q "versionCode='20201'" qa-badging.txt
-          grep -q "versionName='2.2.1-debug'" qa-badging.txt
+          grep -q "versionCode='20202'" qa-badging.txt
+          grep -q "versionName='2.2.2-debug'" qa-badging.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions.txt
           if zipinfo -1 "$APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
             echo "Unexpected web payload" >&2
@@ -209,27 +264,32 @@ jobs:
             echo "webview=absent"
             echo "internet_permission=absent"
             echo "application_id=edu.gascnagercoil.environmentalsciences.debug"
-            echo "version_name=2.2.1-debug"
-            echo "version_code=20201"
-            echo "learning_outcome_blocks=0"
-            echo "generic_tamil_heading_blocks=0"
+            echo "version_name=2.2.2-debug"
+            echo "version_code=20202"
+            echo "units=9"
+            echo "lessons=46"
+            echo "book_content_sha256=$V222_BOOK_SHA256"
+            echo "english_payload_unchanged=true"
+            echo "remaining_mixed_script_entries=40"
             echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
           } | tee qa-evidence.txt
 
-      - name: Prepare device-QA artifact
+      - name: Prepare v2.2.2 device-QA artifact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p qa-artifact
           APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$APK" qa-artifact/Environmental-Studies-v2.2.1-CORRECTION-DEVICE-QA.apk
+          cp "$APK" qa-artifact/Environmental-Studies-v2.2.2-TAMIL-COLLEGE-DEVICE-QA.apk
           cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
-          cp V221_STATIC_AUDIT.json V221_PARITY_REGISTER.md V221_SCI_VIS_REGISTER.md V221_EDITORIAL_CHANGELOG.md V221_CHANGED_FILE_INVENTORY.txt qa-artifact/
+          cp V222_TAMIL_COLLEGE_AUDIT.json V222_TAMIL_EDITORIAL_CHANGELOG.md V222_CHANGED_FILE_INVENTORY.txt qa-artifact/
+          cp V221_STATIC_AUDIT.json V221_PARITY_REGISTER.md V221_SCI_VIS_REGISTER.md V221_EDITORIAL_CHANGELOG.md qa-artifact/
+          cp ../../V222_PROVENANCE.md ../../TAMIL_TERMINOLOGY_MASTER_V222.md ../../V222_TAMIL_COLLEGE_EDITORIAL_AUDIT.md qa-artifact/
           cp ../../V221_PROVENANCE.md ../../TAMIL_TERMINOLOGY_MASTER_V221.md qa-artifact/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.2.1-CORRECTION-DEVICE-QA
+          name: Environmental-Studies-v2.2.2-TAMIL-COLLEGE-DEVICE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
