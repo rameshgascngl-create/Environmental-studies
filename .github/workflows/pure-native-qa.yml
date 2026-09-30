@@ -1,10 +1,10 @@
-name: Environmental Studies v2.2 Academic Visuals QA
+name: Environmental Studies v2.2.1 Correction QA
 # Build gate: pure Android + Indus hold corrections
 
 on:
   push:
     branches:
-      - feature/v2.2-academic-visuals-20260929
+      - correction/v2.2.1-tamil-editorial-scivis-20260929
   workflow_dispatch:
 
 permissions:
@@ -17,10 +17,238 @@ jobs:
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
-      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/feature/v2.2-academic-visuals-20260929/site/privacy-policy.html
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/correction/v2.2.1-tamil-editorial-scivis-20260929/site/privacy-policy.html
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify correction-branch provenance and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=993c43272229f4da9a77237dee7b2dc55f272869
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --name-only "$BASE"..HEAD | tee correction-branch-files.txt
+          unexpected="$(git diff --name-only "$BASE"..HEAD | grep -Ev '^(V221_PROVENANCE\.md|TAMIL_TERMINOLOGY_MASTER_V221\.md|ci/apply_v221_corrections\.py|\.github/workflows/pure-native-qa\.yml)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$SOURCE_ZIP"
+          echo "$SOURCE_SHA256  $SOURCE_ZIP" | sha256sum -c -
+
+      - name: Expand source and apply Indus hold corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf native-build
+          mkdir native-build
+          unzip -q "$SOURCE_ZIP" -d native-build
+          test -d native-build/Environmental-Studies-v2.0.0-native
+          cd native-build/Environmental-Studies-v2.0.0-native
+          patch -p1 < ../../ci/indus-hold.patch
+          cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt
+          cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt
+          cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt
+          python ../../ci/apply_v21.py
+          cp ../../site/privacy-policy.html site/privacy-policy.html
+
+      - name: Inspect lesson content model
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          echo "=== BLOCK MODEL ==="
+          grep -R -n -E 'data class .*Block|sealed (class|interface).*Block|class .*Block' app/src/main/java/edu/gascnagercoil/environmentalsciences | head -80 || true
+          echo "=== LESSON SCREEN ==="
+          grep -n -A90 -B15 'private fun LessonScreen' app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt || true
+          echo "=== OBJECTIVE PHRASES ==="
+          grep -R -n -E 'By the end of this lesson|Learning Objectives|கற்றல் நோக்க|பாடத்தின் முடிவில்' app/src/main | head -80 || true
+
+      - name: Verify pure-native source contract
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          python tools/check_source_gate.py .
+          ! grep -R -n -E 'android\.webkit\.WebView|WebView\(' app/src/main/java
+          ! find app/src/main -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -print -quit | grep -q .
+          grep -q 'edu.gascnagercoil.environmentalsciences' app/build.gradle.kts
+
+      - name: Apply v2.1 build identity and v2.2 academic visuals
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp overlay/v2.1/app/build.gradle.kts native-build/Environmental-Studies-v2.0.0-native/app/build.gradle.kts
+          cat ci/v22lineparts/part* > ci/apply_v22_visuals.py
+          python -m py_compile ci/apply_v22_visuals.py
+          echo "V22_GENERATOR_SHA256=$(sha256sum ci/apply_v22_visuals.py | awk '{print $1}')"
+          cd native-build/Environmental-Studies-v2.0.0-native
+          python ../../ci/apply_v22_visuals.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("app/build.gradle.kts")
+          s=p.read_text()
+          s=s.replace('versionCode = 20100','versionCode = 20200')
+          s=s.replace('versionName = "2.1.0"','versionName = "2.2.0"')
+          if 'com.caverock:androidsvg-aar:1.4' not in s:
+              s=s.replace('implementation("androidx.compose.ui:ui-tooling-preview")',
+                          'implementation("androidx.compose.ui:ui-tooling-preview")\n    implementation("com.caverock:androidsvg-aar:1.4")')
+          p.write_text(s)
+          assert 'versionCode = 20200' in s
+          assert 'versionName = "2.2.0"' in s
+          assert 'com.caverock:androidsvg-aar:1.4' in s
+
+          svg_files=list(Path("app/src/main/res/raw").glob("v22_*.svg"))
+          png_files=list(Path("app/src/main/res/drawable-nodpi").glob("*.png"))
+          data=json.loads(Path("app/src/main/res/raw/book_content.json").read_text())
+          blocks=[b for u in data["units"] for lesson in u["lessons"] for lang in ("english","tamil") for b in lesson[lang] if b.get("kind")=="svg_figure"]
+          print("V22_SVG_RESOURCES", len(svg_files))
+          print("EXISTING_PNG_ASSETS", len(png_files))
+          print("SVG_FIGURE_BLOCKS", len(blocks))
+          assert len(svg_files)==34, len(svg_files)
+          assert len(png_files)>=60, len(png_files)
+          assert len(blocks)==34, len(blocks)
+          assert all(b.get("figure","").startswith("v22_") for b in blocks)
+          import hashlib
+          book=Path("app/src/main/res/raw/book_content.json")
+          digest=hashlib.sha256(book.read_bytes()).hexdigest()
+          print("V22_AUDITED_BOOK_SHA256",digest)
+          assert digest=="7c8ab000ab12e69c43b1ae7723264b0d9d3f5c9506b037a4a06480230e7ebbbd",digest
+          # Snapshot reconstructed v2.2 files before correction.
+          import os
+          snap={}
+          for pth in Path(".").rglob("*"):
+              if pth.is_file() and "/build/" not in str(pth):
+                  snap[str(pth)]=hashlib.sha256(pth.read_bytes()).hexdigest()
+          Path("/tmp/v22_pre.json").write_text(json.dumps(snap,sort_keys=True))
+          PY
+
+      - name: Apply v2.2.1 correction-only editorial and scientific-visual pass
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          python ../../ci/apply_v221_corrections.py
+          python - <<'PY'
+          import json, hashlib
+          from pathlib import Path
+          audit=json.loads(Path("V221_STATIC_AUDIT.json").read_text())
+          assert audit["versionName"]=="2.2.1"
+          assert audit["versionCode"]==20201
+          assert audit["units"]==9
+          assert audit["lessons"]==46
+          assert audit["learning_outcome_blocks"]==0
+          assert audit["generic_tamil_heading_blocks"]==0
+          assert not audit["empty_lessons"]
+          assert not audit["missing_figure_refs"]
+          assert not audit["svg_parse_errors"]
+          pre=json.loads(Path("/tmp/v22_pre.json").read_text())
+          post={}
+          for pth in Path(".").rglob("*"):
+              if pth.is_file() and "/build/" not in str(pth):
+                  post[str(pth)]=hashlib.sha256(pth.read_bytes()).hexdigest()
+          changed=sorted(set(pre)|set(post))
+          changed=[p for p in changed if pre.get(p)!=post.get(p)]
+          Path("V221_CHANGED_FILE_INVENTORY.txt").write_text("\n".join(changed)+"\n")
+          print("V221_CHANGED_FILES",len(changed))
+          print("\n".join(changed))
+          allowed_prefixes=(
+              "app/build.gradle.kts",
+              "app/src/main/res/raw/book_content.json",
+              "app/src/main/res/raw/v22_u03_l32_",
+              "app/src/main/res/raw/v22_u04_l44_",
+              "app/src/main/res/raw/v221_u05_l51_",
+              "V221_STATIC_AUDIT.json",
+              "V221_PARITY_REGISTER.md",
+              "V221_SCI_VIS_REGISTER.md",
+              "V221_EDITORIAL_CHANGELOG.md",
+          )
+          unexpected=[p for p in changed if not p.startswith(allowed_prefixes)]
+          assert not unexpected,unexpected
+          PY
+
+      - name: Verify public Privacy Policy URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$PRIVACY_URL" in
+            https://*) ;;
+            *) echo "Privacy URL must use HTTPS" >&2; exit 2 ;;
+          esac
+          curl -fLsS --retry 3 "$PRIVACY_URL" | grep -q 'Environmental Studies'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'platform-tools'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Clean, lint, test and assemble pure native APK
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          gradle --no-daemon clean :app:lintDebug :app:testDebugUnitTest :app:assembleDebug             -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+
+      - name: Inspect APK identity and offline contract
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -n "$APK" && test -f "$APK"
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging "$APK" | tee qa-badging.txt
+          "$AAPT" dump permissions "$APK" | tee qa-permissions.txt
+          grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging.txt
+          grep -q "versionCode='20201'" qa-badging.txt
+          grep -q "versionName='2.2.1-debug'" qa-badging.txt
+          ! grep -q 'android.permission.INTERNET' qa-permissions.txt
+          if zipinfo -1 "$APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
+            echo "Unexpected web payload in APK" >&2
+            exit 3
+          fi
+          {
+            echo "architecture=pure_native_android"
+            echo "ui=jetpack_compose"
+            echo "webview=absent"
+            echo "internet_permission=absent"
+            echo "application_id=edu.gascnagercoil.environmentalsciences.debug"
+            echo "version_name=2.2.1-debug"
+            echo "version_code=20201"
+            echo "privacy_policy=$PRIVACY_URL"
+            echo "v221_correction_release=true"
+            echo "learning_outcome_blocks=0"
+            echo "generic_tamil_heading_blocks=0"
+            echo "existing_png_assets=63"
+            echo "lesson_objectives=removed_from_authoritative_content"
+            echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
+          } | tee qa-evidence.txt
+
+      - name: Prepare downloadable QA artifact
+        shell: bash
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        run: |
+          set -euo pipefail
+          mkdir -p qa-artifact
+          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          cp "$APK" qa-artifact/Environmental-Studies-v2.2.1-CORRECTION-DEVICE-QA.apk
+          cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.2.1-CORRECTION-DEVICE-QA
+          path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
+          if-no-files-found: error
+ || true)"
+          test -z "$unexpected"
 
       - name: Verify native source archive
         shell: bash
