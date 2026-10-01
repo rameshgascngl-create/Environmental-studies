@@ -1,9 +1,9 @@
-name: Environmental Studies v2.2.3 Tamil Coherence QA
+name: Environmental Studies v2.2.4 Tamil Naturalisation QA
 
 on:
   push:
     branches:
-      - correction/v2.2.3-tamil-coherence-20261001
+      - correction/v2.2.4-tamil-naturalisation-20261001
   workflow_dispatch:
 
 permissions:
@@ -16,10 +16,11 @@ jobs:
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
-      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/correction/v2.2.3-tamil-coherence-20261001/site/privacy-policy.html
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/correction/v2.2.4-tamil-naturalisation-20261001/site/privacy-policy.html
       V221_BOOK_SHA256: 766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599
       V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
       V223_BOOK_SHA256: 1f3b63f25719a7b495528770db4853f01461ebbd4b2b75136235d31ce6ddd211
+      V224_BOOK_SHA256: 1bf866f457cdb7c2590469b32d692f56b5000a58ff76eba1604b0ad158962f40
 
     steps:
       - uses: actions/checkout@v4
@@ -27,31 +28,32 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify v2.2.3 branch scope
+      - name: Verify v2.2.4 branch scope
         shell: bash
         run: |
           set -euo pipefail
-          BASE=bca389b6ff7e8ea64a0fabb0b95e5830f933e8a0
+          BASE=e66ae72ec765f7e8318108dcfdd5cdfbe71728a1
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
-          git diff --name-only "$BASE"..HEAD | tee v223-branch-files.txt
+          git diff --name-only "$BASE"..HEAD | tee v224-branch-files.txt
           python - <<'PY'
           import subprocess
           files=subprocess.check_output(
-              ["git","diff","--name-only","bca389b6ff7e8ea64a0fabb0b95e5830f933e8a0..HEAD"],
+              ["git","diff","--name-only","e66ae72ec765f7e8318108dcfdd5cdfbe71728a1..HEAD"],
               text=True
           ).splitlines()
           exact={
               ".github/workflows/pure-native-qa.yml",
-              "V223_PROVENANCE.md",
-              "V223_TAMIL_COHERENCE_AUDIT.md",
+              "V224_PROVENANCE.md",
+              "V224_TAMIL_NATURALISATION_AUDIT.md",
+              "TAMIL_TERMINOLOGY_MASTER_V224.md",
           }
           unexpected=[
               p for p in files
-              if p not in exact and not p.startswith("ci/v223finalparts/")
+              if p not in exact and not p.startswith("ci/v224parts/")
           ]
           assert not unexpected, unexpected
-          parts=sorted(p for p in files if p.startswith("ci/v223finalparts/"))
-          assert parts==[f"ci/v223finalparts/part{i:02d}" for i in range(8)], parts
+          parts=sorted(p for p in files if p.startswith("ci/v224parts/"))
+          assert parts==["ci/v224parts/part00","ci/v224parts/part01"], parts
           PY
 
       - name: Verify native source archive
@@ -277,6 +279,72 @@ jobs:
           assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
           PY
 
+      - name: Assemble and verify v2.2.4 Tamil naturalisation pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat ci/v224parts/part* | base64 -d | gzip -dc > /tmp/apply_v224_tamil_naturalisation.py
+          echo "27b919ac2ccab574b90d89b529e444365036ad8df768549fdee70822f74dd3a4  /tmp/apply_v224_tamil_naturalisation.py" | sha256sum -c -
+          python -m py_compile /tmp/apply_v224_tamil_naturalisation.py
+
+      - name: Apply and audit v2.2.4 Tamil naturalisation pass
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          snap={}
+          for q in Path(".").rglob("*"):
+              if q.is_file() and "/build/" not in str(q):
+                  snap[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
+          Path("/tmp/v223_pre_v224.json").write_text(json.dumps(snap,sort_keys=True))
+          PY
+
+          python /tmp/apply_v224_tamil_naturalisation.py
+
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          audit=json.loads(Path("V224_TAMIL_NATURALISATION_AUDIT.json").read_text())
+          assert audit["versionName"]=="2.2.4"
+          assert audit["versionCode"]==20204
+          assert audit["units"]==9
+          assert audit["lessons"]==46
+          assert len(audit["lessons_reviewed"])==46
+          assert audit["lesson_body_changes_count"]==19
+          assert audit["review_prompts_rewritten"]==46
+          assert audit["unit_pathways_rebuilt"]==9
+          assert audit["changed_json_fields"]==125
+          assert audit["english_payload_unchanged"] is True
+          assert audit["figure_routing_unchanged"] is True
+          assert all(v==0 for v in audit["forbidden_phrase_counts"].values()), audit["forbidden_phrase_counts"]
+          assert audit["book_content_sha256"]=="1bf866f457cdb7c2590469b32d692f56b5000a58ff76eba1604b0ad158962f40"
+          book=Path("app/src/main/res/raw/book_content.json")
+          assert hashlib.sha256(book.read_bytes()).hexdigest()=="1bf866f457cdb7c2590469b32d692f56b5000a58ff76eba1604b0ad158962f40"
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 20204' in gradle
+          assert 'versionName = "2.2.4"' in gradle
+
+          pre=json.loads(Path("/tmp/v223_pre_v224.json").read_text())
+          post={}
+          for q in Path(".").rglob("*"):
+              if q.is_file() and "/build/" not in str(q):
+                  post[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
+          changed=sorted(p for p in set(pre)|set(post) if pre.get(p)!=post.get(p))
+          Path("V224_CHANGED_FILE_INVENTORY.txt").write_text("\n".join(changed)+"\n")
+          expected={
+              "V224_TAMIL_NATURALISATION_AUDIT.json",
+              "V224_TAMIL_NATURALISATION_CHANGELOG.md",
+              "app/build.gradle.kts",
+              "app/src/main/res/raw/book_content.json",
+          }
+          print("V224_CHANGED_FILES",len(changed))
+          print("\n".join(changed))
+          assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -314,8 +382,8 @@ jobs:
           "$AAPT" dump badging "$APK" | tee qa-badging.txt
           "$AAPT" dump permissions "$APK" | tee qa-permissions.txt
           grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging.txt
-          grep -q "versionCode='20203'" qa-badging.txt
-          grep -q "versionName='2.2.3-debug'" qa-badging.txt
+          grep -q "versionCode='20204'" qa-badging.txt
+          grep -q "versionName='2.2.4-debug'" qa-badging.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions.txt
           if zipinfo -1 "$APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
             echo "Unexpected web payload" >&2
@@ -327,37 +395,39 @@ jobs:
             echo "webview=absent"
             echo "internet_permission=absent"
             echo "application_id=edu.gascnagercoil.environmentalsciences.debug"
-            echo "version_name=2.2.3-debug"
-            echo "version_code=20203"
+            echo "version_name=2.2.4-debug"
+            echo "version_code=20204"
             echo "units=9"
             echo "lessons=46"
-            echo "book_content_sha256=$V223_BOOK_SHA256"
+            echo "book_content_sha256=$V224_BOOK_SHA256"
             echo "english_payload_unchanged=true"
             echo "tamil_lessons_reviewed=46"
-            echo "tamil_lessons_changed=44"
-            echo "tamil_editorial_changes=140"
+            echo "tamil_lesson_bodies_changed=19"
+            echo "tamil_review_prompts_rewritten=46"
             echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
           } | tee qa-evidence.txt
 
-      - name: Prepare v2.2.3 device-QA artifact
+      - name: Prepare v2.2.4 device-QA artifact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p qa-artifact
           APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$APK" qa-artifact/Environmental-Studies-v2.2.3-TAMIL-COHERENCE-DEVICE-QA.apk
+          cp "$APK" qa-artifact/Environmental-Studies-v2.2.4-TAMIL-NATURALISATION-DEVICE-QA.apk
           cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
+          cp V224_TAMIL_NATURALISATION_AUDIT.json V224_TAMIL_NATURALISATION_CHANGELOG.md V224_CHANGED_FILE_INVENTORY.txt qa-artifact/
+          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v224.json
           cp V223_TAMIL_COHERENCE_AUDIT.json V223_TAMIL_COHERENCE_CHANGELOG.md V223_CHANGED_FILE_INVENTORY.txt qa-artifact/
-          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v223.json
           cp V222_TAMIL_COLLEGE_AUDIT.json V222_TAMIL_EDITORIAL_CHANGELOG.md V222_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp V221_STATIC_AUDIT.json V221_PARITY_REGISTER.md V221_SCI_VIS_REGISTER.md V221_EDITORIAL_CHANGELOG.md qa-artifact/
+          cp ../../V224_PROVENANCE.md ../../V224_TAMIL_NATURALISATION_AUDIT.md ../../TAMIL_TERMINOLOGY_MASTER_V224.md qa-artifact/
           cp ../../V223_PROVENANCE.md ../../V223_TAMIL_COHERENCE_AUDIT.md qa-artifact/
           cp ../../V222_PROVENANCE.md ../../TAMIL_TERMINOLOGY_MASTER_V222.md ../../V222_TAMIL_COLLEGE_EDITORIAL_AUDIT.md qa-artifact/
           cp ../../V221_PROVENANCE.md ../../TAMIL_TERMINOLOGY_MASTER_V221.md qa-artifact/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.2.3-TAMIL-COHERENCE-DEVICE-QA
+          name: Environmental-Studies-v2.2.4-TAMIL-NATURALISATION-DEVICE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
