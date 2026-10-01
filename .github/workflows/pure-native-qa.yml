@@ -21,6 +21,10 @@ jobs:
       V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
       V223_BOOK_SHA256: 1f3b63f25719a7b495528770db4853f01461ebbd4b2b75136235d31ce6ddd211
       V224_BOOK_SHA256: 1bf866f457cdb7c2590469b32d692f56b5000a58ff76eba1604b0ad158962f40
+      ENVSTUDIES_KEYSTORE_BASE64: ${{ secrets.ENVSTUDIES_KEYSTORE_BASE64 }}
+      ENVSTUDIES_KEYSTORE_PASSWORD: ${{ secrets.ENVSTUDIES_KEYSTORE_PASSWORD }}
+      ENVSTUDIES_KEY_ALIAS: ${{ secrets.ENVSTUDIES_KEY_ALIAS }}
+      ENVSTUDIES_KEY_PASSWORD: ${{ secrets.ENVSTUDIES_KEY_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -28,20 +32,28 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify audit branch scope
+      - name: Verify Task A branch scope
         shell: bash
         run: |
           set -euo pipefail
           BASE=e00284feefa6544081ee13d58eeee7e57121582c
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
-          git diff --name-only "$BASE"..HEAD | tee v240-audit-branch-files.txt
+          git diff --name-only "$BASE"..HEAD | tee v240-task-a-branch-files.txt
           python - <<'PY'
           import subprocess
           files=set(subprocess.check_output(
               ["git","diff","--name-only","e00284feefa6544081ee13d58eeee7e57121582c..HEAD"],
               text=True
           ).splitlines())
-          expected={".github/workflows/pure-native-qa.yml","ci/audit_v240_findings.py"}
+          expected={
+              ".github/workflows/pure-native-qa.yml",
+              "ci/audit_v240_findings.py",
+              "ci/apply_v240_a1_release_hardening.py",
+              "ci/verify_v240_a2_preview_tooling.py",
+              "ci/apply_v240_a3_backup_policy.py",
+              "ci/verify_v240_a4_r8_policy.py",
+              "ci/apply_v240_a5_release_identity.py",
+          }
           assert files==expected, (files-expected, expected-files)
           PY
 
@@ -499,6 +511,52 @@ jobs:
           python ../../ci/audit_v240_findings.py
           cat V240_STATIC_FINDINGS.json
 
+      - name: Apply Task A release hardening
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../../ci/apply_v240_a1_release_hardening.py
+          python ../../ci/verify_v240_a2_preview_tooling.py
+          python ../../ci/apply_v240_a3_backup_policy.py
+          python ../../ci/verify_v240_a4_r8_policy.py
+          python ../../ci/apply_v240_a5_release_identity.py
+
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 20400' in gradle
+          assert 'versionName = "2.4.0"' in gradle
+          assert 'isDebuggable = false' in gradle
+          assert 'isMinifyEnabled = true' in gradle
+          assert 'isShrinkResources = true' in gradle
+          assert 'rootProject.file("local.properties")' in gradle
+
+          book=json.loads(Path("app/src/main/res/raw/book_content.json").read_text())
+          assert book["schemaVersion"]==1
+          assert book["nativeVersion"]=="2.4.0"
+
+          manifest=ET.parse("app/src/main/AndroidManifest.xml").getroot()
+          app=manifest.find("application")
+          assert app is not None
+          ns="{http://schemas.android.com/apk/res/android}"
+          assert app.attrib.get(ns+"allowBackup")=="false"
+          assert not any("PreviewActivity" in (node.attrib.get(ns+"name") or "") for node in manifest.findall(".//activity"))
+
+          raw=Path("app/src/main/res/raw")
+          assert not list(raw.glob("v22*.svg"))
+          assert len(list(raw.glob("sci_*.svg")))>=36
+          text=Path("app/src/main/res/raw/book_content.json").read_text()
+          assert not re.search(r'"v22(?:1)?_[^"]+"', text)
+
+          proguard=Path("app/proguard-rules.pro").read_text()
+          active=[line.strip() for line in proguard.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+          assert not active, active
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -520,83 +578,135 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Clean lint test and build device-QA APK
-        working-directory: native-build/Environmental-Studies-v2.0.0-native
-        run: |
-          gradle --no-daemon clean :app:lintDebug :app:testDebugUnitTest :app:assembleDebug -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
-
-      - name: Inspect APK identity, content identity and offline contract
+      - name: Build v2.4.0 debug QA and exercise minified release pipeline
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
-          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          test -f "$APK"
+
+          # Release compilation/minification does not require a replacement signing key.
+          # packageRelease is used as an unsigned R8/resource-shrinking QA artefact when
+          # the original production signing secret is not available to this runner.
+          gradle --no-daemon clean :app:lintRelease :app:testReleaseUnitTest :app:packageRelease -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+
+          RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1 || true)"
+          test -n "$RELEASE_APK"
+          test -f "$RELEASE_APK"
+
+          RELEASE_SIZE=$(stat -c%s "$RELEASE_APK")
+          RELEASE_DEX=$(zipinfo -1 "$RELEASE_APK" | grep -Ec '^classes([0-9]+)?\.dex$' || true)
+
+          gradle --no-daemon :app:lintDebug :app:testDebugUnitTest :app:assembleDebug -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+          DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          DEBUG_SIZE=$(stat -c%s "$DEBUG_APK")
+          DEBUG_DEX=$(zipinfo -1 "$DEBUG_APK" | grep -Ec '^classes([0-9]+)?\.dex$' || true)
+
+          {
+            echo "v230_debug_apk_bytes_reference=unknown_in_this_run"
+            echo "v230_debug_dex_reference=8"
+            echo "v240_debug_apk_bytes=$DEBUG_SIZE"
+            echo "v240_debug_dex_count=$DEBUG_DEX"
+            echo "v240_minified_unsigned_release_apk_bytes=$RELEASE_SIZE"
+            echo "v240_minified_unsigned_release_dex_count=$RELEASE_DEX"
+          } | tee v240-size-dex-report.txt
+
+      - name: Build signed release APK and AAB when original signing secrets are present
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS=release-signing-status.txt
+          if [ -n "${ENVSTUDIES_KEYSTORE_BASE64:-}" ] &&
+             [ -n "${ENVSTUDIES_KEYSTORE_PASSWORD:-}" ] &&
+             [ -n "${ENVSTUDIES_KEY_ALIAS:-}" ] &&
+             [ -n "${ENVSTUDIES_KEY_PASSWORD:-}" ]; then
+            KEYSTORE="$RUNNER_TEMP/environmental-studies-release.keystore"
+            printf '%s' "$ENVSTUDIES_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
+            chmod 600 "$KEYSTORE"
+            ENVSTUDIES_KEYSTORE_PATH="$KEYSTORE" gradle --no-daemon :app:assembleRelease :app:bundleRelease -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+            echo "signed_release_available=true" | tee "$STATUS"
+          else
+            echo "signed_release_available=false" | tee "$STATUS"
+            echo "Original production signing secrets are not configured on this runner; no replacement key was generated." | tee -a "$STATUS"
+          fi
+
+      - name: Inspect v2.4.0 package identity and offline contract
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -f "$DEBUG_APK"
+          test -f "$RELEASE_APK"
+
           AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
-          "$AAPT" dump badging "$APK" | tee qa-badging.txt
-          "$AAPT" dump permissions "$APK" | tee qa-permissions.txt
-          grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging.txt
-          grep -q "versionCode='20300'" qa-badging.txt
-          grep -q "versionName='2.3.0-debug'" qa-badging.txt
-          ! grep -q 'android.permission.INTERNET' qa-permissions.txt
-          if zipinfo -1 "$APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
-            echo "Unexpected web payload" >&2
+          "$AAPT" dump badging "$DEBUG_APK" | tee qa-badging-debug.txt
+          "$AAPT" dump permissions "$DEBUG_APK" | tee qa-permissions-debug.txt
+          "$AAPT" dump badging "$RELEASE_APK" | tee qa-badging-release.txt
+          "$AAPT" dump permissions "$RELEASE_APK" | tee qa-permissions-release.txt
+
+          grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging-debug.txt
+          grep -q "versionCode='20400'" qa-badging-debug.txt
+          grep -q "versionName='2.4.0-debug'" qa-badging-debug.txt
+
+          grep -q "package: name='edu.gascnagercoil.environmentalsciences'" qa-badging-release.txt
+          grep -q "versionCode='20400'" qa-badging-release.txt
+          grep -q "versionName='2.4.0'" qa-badging-release.txt
+
+          ! grep -q 'android.permission.INTERNET' qa-permissions-debug.txt
+          ! grep -q 'android.permission.INTERNET' qa-permissions-release.txt
+
+          if zipinfo -1 "$RELEASE_APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
+            echo "Unexpected web payload in release package" >&2
             exit 3
           fi
+
+          BOOK_SHA=$(sha256sum app/src/main/res/raw/book_content.json | awk '{print $1}')
           {
             echo "architecture=pure_native_android"
-            echo "ui=jetpack_compose"
             echo "webview=absent"
             echo "internet_permission=absent"
-            echo "application_id=edu.gascnagercoil.environmentalsciences.debug"
-            echo "version_name=2.3.0-debug"
-            echo "version_code=20300"
-            echo "units=9"
-            echo "lessons=46"
-            echo "book_content_sha256=$V224_BOOK_SHA256"
-            echo "english_payload_unchanged=true"
-            echo "tamil_lessons_reviewed=46"
-            echo "tamil_lesson_bodies_changed=19"
-            echo "tamil_review_prompts_rewritten=46"
-            echo "lesson_home_one_tap=true"
-            echo "lesson_unit_contents_one_tap=true"
-            echo "lesson_previous_next_persistent=true"
-            echo "lesson_back_targets_current_unit=true"
-            echo "print_pdf_secondary_actions=true"
-            echo "last_read_per_unit=true"
-            echo "continue_markers=true"
-            echo "realistic_context_scenes=9"
-            echo "new_environmental_animation_pages=6"
-            echo "total_narrated_animation_topics=10"
-            echo "android_tts_audio=true"
-            echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
-          } | tee qa-evidence.txt
+            echo "release_application_id=edu.gascnagercoil.environmentalsciences"
+            echo "version_name=2.4.0"
+            echo "version_code=20400"
+            echo "book_nativeVersion=2.4.0"
+            echo "book_schemaVersion=1"
+            echo "book_content_sha256=$BOOK_SHA"
+            echo "allowBackup=false"
+            echo "minifyEnabled=true"
+            echo "shrinkResources=true"
+            echo "release_debuggable=false"
+            echo "version_prefixed_svg_assets=0"
+            echo "APK_SHA256=$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
+          } | tee qa-evidence-v240-a.txt
 
-      - name: Prepare v2.3.0 visual-audio device-QA artifact
+      - name: Prepare Task A QA artefact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf qa-artifact
           mkdir -p qa-artifact
-          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$APK" qa-artifact/Environmental-Studies-v2.3.0-VISUAL-AUDIO-DEVICE-QA.apk
-          cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
-          cp V240_STATIC_FINDINGS.json qa-artifact/\n          cp V230_LEARNING_EXPERIENCE_AUDIT.json V230_LEARNING_EXPERIENCE_CHANGELOG.md V230_CHANGED_FILE_INVENTORY.txt qa-artifact/
-          cp V225_NAVIGATION_UX_AUDIT.json V225_NAVIGATION_UX_CHANGELOG.md V225_CHANGED_FILE_INVENTORY.txt qa-artifact/
-          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v224_FROZEN.json
-          cp V224_TAMIL_NATURALISATION_AUDIT.json V224_TAMIL_NATURALISATION_CHANGELOG.md V224_CHANGED_FILE_INVENTORY.txt qa-artifact/
-          cp V223_TAMIL_COHERENCE_AUDIT.json V223_TAMIL_COHERENCE_CHANGELOG.md V223_CHANGED_FILE_INVENTORY.txt qa-artifact/
-          cp V222_TAMIL_COLLEGE_AUDIT.json V222_TAMIL_EDITORIAL_CHANGELOG.md V222_CHANGED_FILE_INVENTORY.txt qa-artifact/
-          cp V221_STATIC_AUDIT.json V221_PARITY_REGISTER.md V221_SCI_VIS_REGISTER.md V221_EDITORIAL_CHANGELOG.md qa-artifact/
+          DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.0-TASK-A-DEVICE-QA.apk
+          cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.0-UNSIGNED-R8-QA.apk
+          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-evidence-v240-a.txt qa-artifact/
+          cp v240-size-dex-report.txt release-signing-status.txt qa-artifact/
+          cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
+          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v240_task_a.json
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
-          cp ../../V225_PROVENANCE.md ../../V225_NAVIGATION_UX_AUDIT.md qa-artifact/
-          cp ../../V224_PROVENANCE.md ../../V224_TAMIL_NATURALISATION_AUDIT.md ../../TAMIL_TERMINOLOGY_MASTER_V224.md qa-artifact/
-          cp ../../V223_PROVENANCE.md ../../V223_TAMIL_COHERENCE_AUDIT.md qa-artifact/
-          cp ../../V222_PROVENANCE.md ../../TAMIL_TERMINOLOGY_MASTER_V222.md ../../V222_TAMIL_COLLEGE_EDITORIAL_AUDIT.md qa-artifact/
-          cp ../../V221_PROVENANCE.md ../../TAMIL_TERMINOLOGY_MASTER_V221.md qa-artifact/
+
+          if grep -q 'signed_release_available=true' release-signing-status.txt; then
+            SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+            AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
+            cp "$SIGNED_APK" qa-artifact/Environmental-Studies-v2.4.0-RELEASE.apk
+            cp "$AAB" qa-artifact/Environmental-Studies-v2.4.0-RELEASE.aab
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.3.0-VISUAL-AUDIO-DEVICE-QA
+          name: Environmental-Studies-v2.4.0-TASK-A-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
