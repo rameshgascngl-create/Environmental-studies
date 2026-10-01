@@ -31,4 +31,4 @@ assert "isShrinkResources = true" in gradle
 
 print("A4 reflection dependencies:", reflection_dependencies)
 print("A4 active application keep rules:", active_rules)
-print("A4 verified: no unjustified broad R8 keep rule is required.")
+print("A4 verified: no application-specific R8 keep rule is required.")
