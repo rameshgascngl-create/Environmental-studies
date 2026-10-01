@@ -1296,7 +1296,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             cd native-build/Environmental-Studies-v2.0.0-native
             gradle --no-daemon :app:connectedDebugAndroidTest \
               -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
