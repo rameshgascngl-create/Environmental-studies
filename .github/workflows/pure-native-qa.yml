@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify Task A branch scope
+      - name: Verify v2.4.0 controlled branch scope
         shell: bash
         run: |
           set -euo pipefail
@@ -857,7 +857,7 @@ jobs:
             echo "APK_SHA256=$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
           } | tee qa-evidence-v240-a.txt
 
-      - name: Prepare Task A QA artefact
+      - name: Prepare Task C QA artefact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -866,7 +866,7 @@ jobs:
           mkdir -p qa-artifact
           DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
           RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.0-TASK-A-DEVICE-QA.apk
+          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.0-TASK-C-DEVICE-QA.apk
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.0-UNSIGNED-R8-QA.apk
           cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-evidence-v240-a.txt qa-artifact/
           cp v240-size-dex-report.txt release-signing-status.txt qa-artifact/
@@ -903,6 +903,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.0-TASK-A-QA
+          name: Environmental-Studies-v2.4.0-TASK-C-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
