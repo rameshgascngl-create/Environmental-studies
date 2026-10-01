@@ -1153,6 +1153,45 @@ jobs:
           print("V245_BOOK_SHA256",hashlib.sha256(Path("app/src/main/res/raw/book_content.json").read_bytes()).hexdigest())
           PY
 
+      - name: Apply explicit unsigned release QA signing gate
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path("app/build.gradle.kts")
+          s=p.read_text()
+
+          property_line='val allowUnsignedReleaseQa = providers.gradleProperty("ALLOW_UNSIGNED_RELEASE_QA").map { it.toBoolean() }.orElse(false)'
+          guard_old='if (!hasReleaseSigning) throw GradleException("Original Environmental Studies release signing credentials are required; do not generate a replacement key.")'
+          guard_new='if (!hasReleaseSigning && !allowUnsignedReleaseQa.get()) throw GradleException("Original Environmental Studies release signing credentials are required; do not generate a replacement key.")'
+
+          assert property_line not in s, "unsigned QA property already present unexpectedly"
+          assert s.count(guard_old)==1, "production signing guard not found exactly once"
+
+          lines=s.splitlines()
+          hits=[i for i,line in enumerate(lines) if line.startswith("val hasReleaseSigning =")]
+          assert len(hits)==1, hits
+          lines.insert(hits[0]+1, property_line)
+          s="\n".join(lines)+"\n"
+          s=s.replace(guard_old,guard_new,1)
+          p.write_text(s)
+
+          verify=p.read_text()
+          assert verify.count(property_line)==1
+          assert verify.count(guard_new)==1
+          assert guard_old not in verify
+
+          Path("v245-signing-qa-gate.txt").write_text(
+              "production_signing_guard=RETAINED\n"
+              "unsigned_release_qa_requires_explicit_property=true\n"
+              "unsigned_release_qa_property=ALLOW_UNSIGNED_RELEASE_QA\n"
+              "replacement_keystore_generation=PROHIBITED\n"
+          )
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -1194,7 +1233,9 @@ jobs:
           # Release compilation/minification does not require a replacement signing key.
           # packageRelease is used as an unsigned R8/resource-shrinking QA artefact when
           # the original production signing secret is not available to this runner.
-          gradle --no-daemon clean :app:lintRelease :app:testReleaseUnitTest :app:packageRelease :app:bundleRelease -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+          ENVSTUDIES_KEYSTORE_PATH= ENVSTUDIES_KEYSTORE_PASSWORD= ENVSTUDIES_KEY_ALIAS= ENVSTUDIES_KEY_PASSWORD= \
+            gradle --no-daemon clean :app:lintRelease :app:testReleaseUnitTest :app:packageRelease :app:bundleRelease \
+            -PPRIVACY_POLICY_URL="$PRIVACY_URL" -PALLOW_UNSIGNED_RELEASE_QA=true --stacktrace
 
           RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1 || true)"
           test -n "$RELEASE_APK"
@@ -1395,7 +1436,7 @@ jobs:
           cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.5-DEVICE-QA.apk
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
           cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
-          cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt qa-artifact/
+          cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt qa-artifact/
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json V240_C1_IMAGE_DECODE_AUDIT.json V240_C2_SVG_LEGIBILITY_AUDIT.json V240_C3_TAMIL_FONT_AUDIT.json V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
           cp V241_DEVICE_FIGURE_QA_AUDIT.json V242_TAMIL_VISUAL_ICON_AUDIT.json V243_LIVING_ENVIRONMENT_AUDIT.json V243_VISUAL_ATLAS_COMPLETION_AUDIT.json V244_RELEASE_READINESS_AUDIT.json qa-artifact/
