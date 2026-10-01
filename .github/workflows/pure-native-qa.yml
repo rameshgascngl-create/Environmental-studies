@@ -58,6 +58,7 @@ jobs:
               "ci/apply_v240_b2_state.py",
               "ci/apply_v240_b3_compose_stability.py",
               "ci/apply_v240_c1_png_decode.py",
+              "ci/apply_v240_c2_svg_legibility.py",
               "ci/apply_v240_c3_tamil_font.py",
               "ci/apply_v240_c4_accessibility.py",
               "FACTS_TO_VERIFY.md",
@@ -664,6 +665,27 @@ jobs:
           assert "inSampleSize = sample" in helper
           PY
 
+      - name: Apply Task C2 SVG legibility
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../../ci/apply_v240_c2_svg_legibility.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          audit=json.loads(Path("V240_C2_SVG_LEGIBILITY_AUDIT.json").read_text())
+          assert audit["svg_count"]==36
+          assert audit["source_font_units_preserved"] is True
+          assert audit["blanket_minimum_36_unit_rewrite_applied"] is False
+          assert audit["minimum_effective_dp_equivalent_default_scale"]>=11.0
+          assert audit["large_canvas_svg_count"]==6
+          assert audit["horizontal_pan_enabled"] is True
+          assert audit["pinch_zoom_retained"] is True
+          assert audit["android_font_scale_applies_inside_svg"] is False
+          assert audit["english_tamil_overlap_physically_verified"] is False
+          PY
+
       - name: Apply Task C3 bundled Noto Sans Tamil
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -851,6 +873,7 @@ jobs:
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
           cp V240_C1_IMAGE_DECODE_AUDIT.json qa-artifact/
+          cp V240_C2_SVG_LEGIBILITY_AUDIT.json qa-artifact/
           cp V240_C3_TAMIL_FONT_AUDIT.json qa-artifact/
           cp V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
           cp ../../FACTS_TO_VERIFY.md qa-artifact/
