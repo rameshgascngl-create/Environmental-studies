@@ -1304,9 +1304,26 @@ jobs:
 
           rm -rf qa-svg-androidsvg
           mkdir -p qa-svg-androidsvg
-          adb exec-out run-as edu.gascnagercoil.environmentalsciences.debug \
-            tar -C files/svg-androidsvg -cf - . > /tmp/v245-svg-androidsvg.tar
-          tar -xf /tmp/v245-svg-androidsvg.tar -C qa-svg-androidsvg
+
+          PACKAGE=edu.gascnagercoil.environmentalsciences.debug
+          adb shell run-as "$PACKAGE" sh -c 'test -d files/svg-androidsvg'
+          REMOTE_FILES="$(adb shell run-as "$PACKAGE" sh -c 'ls files/svg-androidsvg/*.png' | tr -d '\r')"
+          test -n "$REMOTE_FILES"
+          while IFS= read -r REMOTE; do
+            [ -n "$REMOTE" ] || continue
+            NAME="$(basename "$REMOTE")"
+            adb exec-out run-as "$PACKAGE" cat "$REMOTE" > "qa-svg-androidsvg/$NAME"
+            test -s "qa-svg-androidsvg/$NAME"
+          done <<< "$REMOTE_FILES"
+
+          python - <<'PYPNG'
+          from pathlib import Path
+          files=sorted(Path("qa-svg-androidsvg").glob("*.png"))
+          assert files, "No AndroidSVG PNG renders were extracted"
+          sig=b"\x89PNG\r\n\x1a\n"
+          bad=[p.name for p in files if not p.read_bytes().startswith(sig)]
+          assert not bad, bad
+          PYPNG
 
           EXPECTED="$(find app/src/main/res/raw -maxdepth 1 -type f -name '*_ta.svg' | wc -l)"
           ACTUAL="$(find qa-svg-androidsvg -maxdepth 1 -type f -name '*.png' | wc -l)"
