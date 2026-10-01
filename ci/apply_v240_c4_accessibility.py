@@ -136,6 +136,14 @@ if "val figureDescription = block.alt.ifBlank" not in s:
         "                    resId = resId,\n                    modifier = Modifier",
         "                    resId = resId,\n                    description = description,\n                    modifier = Modifier"
     )
+    # C2 rewrites the inline SVG call to multiline form. Its description must
+    # refer to the block-local figureDescription; the zoom-dialog call uses
+    # its own description parameter. Keep those two scopes distinct.
+    head, marker, tail = s.partition("@Composable\nprivate fun SvgResource")
+    if not marker:
+        raise SystemExit("SvgResource function marker changed")
+    head = head.replace("description = description,", "description = figureDescription,")
+    s = head + marker + tail
     svgp.write_text(s,encoding="utf-8")
 
 # 4) Quiz options: whole row selectable, >=48dp target, one radio semantic target.
