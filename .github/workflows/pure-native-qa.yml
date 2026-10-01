@@ -1033,6 +1033,8 @@ jobs:
           "$AAPT" dump permissions "$DEBUG_APK" | tee qa-permissions-debug.txt
           "$AAPT" dump badging "$RELEASE_APK" | tee qa-badging-release.txt
           "$AAPT" dump permissions "$RELEASE_APK" | tee qa-permissions-release.txt
+          "$AAPT" dump resources "$DEBUG_APK" | tee qa-resources-debug.txt
+          "$AAPT" dump resources "$RELEASE_APK" | tee qa-resources-release.txt
 
           grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging-debug.txt
           grep -q "versionCode='20404'" qa-badging-debug.txt
@@ -1045,16 +1047,16 @@ jobs:
           ! grep -q 'android.permission.INTERNET' qa-permissions-debug.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions-release.txt
 
-          if zipinfo -1 "$DEBUG_APK" | grep -Eq "res/drawable[^/]*/fig_[0-9]+_u[0-9]+_ta[.]png"; then
-            echo "Stale Tamil raster teaching plates remain in debug APK" >&2
+          if grep -Eq ':drawable/fig_[0-9]+_u[0-9]+_ta([[:space:]]|$)' qa-resources-debug.txt; then
+            echo "Stale Tamil raster teaching plate resource remains in debug APK" >&2
             exit 4
           fi
-          if zipinfo -1 "$RELEASE_APK" | grep -Eq "res/drawable[^/]*/fig_[0-9]+_u[0-9]+_ta[.]png"; then
-            echo "Stale Tamil raster teaching plates remain in release APK" >&2
+          if grep -Eq ':drawable/fig_[0-9]+_u[0-9]+_ta([[:space:]]|$)' qa-resources-release.txt; then
+            echo "Stale Tamil raster teaching plate resource remains in release APK" >&2
             exit 5
           fi
-          zipinfo -1 "$RELEASE_APK" | grep -q "res/raw/androidsvg_apache_2_license.txt"
-          zipinfo -1 "$RELEASE_APK" | grep -q "res/raw/noto_sans_tamil_ofl.txt"
+          grep -q ':raw/androidsvg_apache_2_license' qa-resources-release.txt
+          grep -q ':raw/noto_sans_tamil_ofl' qa-resources-release.txt
 
           if zipinfo -1 "$RELEASE_APK" | grep -Ei "^assets/.*[.](html|js|css)$"; then
             echo "Unexpected web payload in release package" >&2
@@ -1091,7 +1093,7 @@ jobs:
           RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
           cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.4-DEVICE-QA.apk
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.4-UNSIGNED-R8-QA.apk
-          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-evidence-v244.txt qa-artifact/
+          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-evidence-v244.txt qa-artifact/
           cp v244-size-dex-report.txt release-signing-status.txt qa-artifact/
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
