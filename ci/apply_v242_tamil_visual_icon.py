@@ -57,10 +57,13 @@ replacements={
    ('மறுகணக்காய்வு','மீள் கணக்காய்வு'),
  ],
  'sci_u09_l94_ta.svg':[
-   ('சேமி &amp; கண்காணி','சேமித்து கண்காணி'),
+   ('சேமி &amp; கண்காணி','சேமித்தல் மற்றும் கண்காணித்தல்'),
  ],
  'sci_u09_l95_ta.svg':[
    ('உள்ளூர் சுற்றுச்சூழல் கவனிப்பு','உள்ளூர் சுற்றுச்சூழல் கண்காணிப்பு'),
+   ('உயிரற்ற கூறுகள்','உயிரற்ற கூறுகளைப்'),
+   ('உயிருள்ள கூறுகள்','உயிருள்ள கூறுகளைப்'),
+   ('பதிவுசெய்தல்','பதிவு செய்தல்'),
    ('மனிதச் செயல்பாடுகளால் ஏற்படும் அழுத்தங்களைப் பதிவுசெய்தல் செய்','மனிதச் செயல்பாடுகளின் அழுத்தங்களைப் பதிவு செய்தல்'),
  ],
  'sci_u09_l96_ta.svg':[
@@ -79,6 +82,15 @@ for name,repls in replacements.items():
     if s!=before:
         p.write_text(s,encoding='utf-8')
         changed_svg.append(name)
+
+p95=RAW/'sci_u09_l95_ta.svg'
+s95=p95.read_text(encoding='utf-8')
+s95=s95.replace(
+    '<text x="685.0" y="427.5" text-anchor="middle" class="small">மனிதச் செயல்பாடுகளின் அழுத்தங்களைப் பதிவு செய்தல்</text>',
+    '<text x="685.0" y="410.0" text-anchor="middle" style="font-family:Noto Sans Tamil;fill:#17352E;font-size:24px">மனிதச் செயல்பாடுகளின்</text>\n'
+    '<text x="685.0" y="442.0" text-anchor="middle" style="font-family:Noto Sans Tamil;fill:#17352E;font-size:24px">அழுத்தங்களைப் பதிவு செய்தல்</text>'
+)
+p95.write_text(s95,encoding='utf-8')
 
 p=RAW/'sci_u04_l47_ta.svg'
 s=p.read_text(encoding='utf-8')
