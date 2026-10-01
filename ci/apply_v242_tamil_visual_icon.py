@@ -213,7 +213,6 @@ v31.mkdir(parents=True,exist_ok=True)
         <item name="android:windowSplashScreenBackground">@color/launch_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="android:windowSplashScreenAnimationDuration">350</item>
-        <item name="android:postSplashScreenTheme">@style/Theme.EnvironmentalStudies</item>
     </style>
 </resources>
 ''',encoding='utf-8')
