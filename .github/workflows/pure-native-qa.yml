@@ -53,6 +53,7 @@ jobs:
               "ci/apply_v240_a3_backup_policy.py",
               "ci/verify_v240_a4_r8_policy.py",
               "ci/apply_v240_a5_release_identity.py",
+              "ci/audit_v240_b_architecture.py",
           }
           assert files==expected, (files-expected, expected-files)
           PY
@@ -557,6 +558,14 @@ jobs:
           assert not active, active
           PY
 
+      - name: Audit Task B architecture before refactor
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../../ci/audit_v240_b_architecture.py
+          cat V240_B_ARCHITECTURE_FINDINGS.json
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -695,6 +704,7 @@ jobs:
           cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-evidence-v240-a.txt qa-artifact/
           cp v240-size-dex-report.txt release-signing-status.txt qa-artifact/
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
+          cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v240_task_a.json
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
 
