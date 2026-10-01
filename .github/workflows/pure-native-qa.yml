@@ -57,7 +57,11 @@ jobs:
               "ci/apply_v240_b1_architecture.py",
               "ci/apply_v240_b2_state.py",
               "ci/apply_v240_b3_compose_stability.py",
-              "ci/apply_v240_c1_png_decode.py",\n              "ci/apply_v240_c3_tamil_font.py",\n              "FACTS_TO_VERIFY.md",\n              "overlay/v2.4/app/src/main/res/font/noto_sans_tamil.ttf",\n              "overlay/v2.4/app/src/main/res/raw/noto_sans_tamil_ofl.txt",
+              "ci/apply_v240_c1_png_decode.py",
+              "ci/apply_v240_c3_tamil_font.py",
+              "FACTS_TO_VERIFY.md",
+              "overlay/v2.4/app/src/main/res/font/noto_sans_tamil.ttf",
+              "overlay/v2.4/app/src/main/res/raw/noto_sans_tamil_ofl.txt",
               "overlay/v2.4/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/LearningStateViewModel.kt",
           }
           assert files==expected, (files-expected, expected-files)
