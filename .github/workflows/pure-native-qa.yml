@@ -64,6 +64,7 @@ jobs:
               "ci/apply_v241_device_figure_qa.py",
               "ci/apply_v242_tamil_visual_icon.py",
               "ci/v243_living_environment.py.gz.b64",
+              "ci/v243_visual_atlas_completion.py.gz.b64",
               "FACTS_TO_VERIFY.md",
               "overlay/v2.4/app/src/main/res/font/noto_sans_tamil.ttf",
               "overlay/v2.4/app/src/main/res/raw/noto_sans_tamil_ofl.txt",
@@ -862,6 +863,30 @@ jobs:
           assert (Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/BrandExperience.kt")).is_file()
           PY
 
+      - name: Complete v2.4.3 Tamil visual atlas
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d ../../ci/v243_visual_atlas_completion.py.gz.b64 | gzip -dc > /tmp/apply_v243_visual_atlas_completion.py
+          python -m py_compile /tmp/apply_v243_visual_atlas_completion.py
+          python /tmp/apply_v243_visual_atlas_completion.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          audit=json.loads(Path("V243_VISUAL_ATLAS_COMPLETION_AUDIT.json").read_text())
+          assert audit["versionName"]=="2.4.3"
+          assert audit["additional_tamil_png_routes_replaced"]==6
+          assert audit["remaining_tamil_png_routes"]==[]
+          assert audit["stale_tamil_png_assets_removed"]==6
+          assert audit["all_new_svg_xml_parses"] is True
+          assert audit["cpcb_naaqs_reference_plate_rebuilt"] is True
+          assert audit["carbon_cycle_overlap_eliminated"] is True
+          assert audit["tofu_glyph_plate_eliminated"] is True
+          assert audit["english_lesson_content_changed"] is False
+          assert audit["tamil_lesson_prose_changed"] is False
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -1008,6 +1033,7 @@ jobs:
           cp V241_DEVICE_FIGURE_QA_AUDIT.json qa-artifact/
           cp V242_TAMIL_VISUAL_ICON_AUDIT.json qa-artifact/
           cp V243_LIVING_ENVIRONMENT_AUDIT.json qa-artifact/
+          cp V243_VISUAL_ATLAS_COMPLETION_AUDIT.json qa-artifact/
           cp ../../FACTS_TO_VERIFY.md qa-artifact/
           cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
           if [ -d app/build/compose_compiler ]; then
