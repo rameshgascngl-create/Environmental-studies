@@ -18,7 +18,7 @@ for p in sorted(RAW.glob("sci_*.svg")):
     if not vb:
         raise SystemExit(f"Missing viewBox: {p.name}")
     width=float(vb.group(3))
-    sizes=[float(x) for x in re.findall(r'''font-size\s*=\s*["']?([0-9]+(?:\.[0-9]+)?)''',text)]
+    sizes=[float(x) for x in re.findall(r'''font-size\s*[:=]\s*["']?([0-9]+(?:\.[0-9]+)?)''',text)]
     if not sizes:
         raise SystemExit(f"No font sizes found: {p.name}")
     minimum=min(sizes)
