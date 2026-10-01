@@ -1,9 +1,9 @@
-name: Environmental Studies v2.4.4 Release Readiness QA
+name: Environmental Studies v2.4.5 Release Candidate QA
 
 on:
   push:
     branches:
-      - correction/v2.4.4-release-readiness-20261001
+      - release/v2.4.5-rc-20261001
   workflow_dispatch:
 
 permissions:
@@ -97,6 +97,18 @@ jobs:
           cp ../../overlay/v2.1/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt
           python ../../ci/apply_v21.py
           cp ../../site/privacy-policy.html site/privacy-policy.html
+
+      - name: Inspect root Gradle configuration for v2.4.5 baseline-profile setup
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== settings.gradle.kts ==="
+          cat settings.gradle.kts
+          echo "=== build.gradle.kts ==="
+          cat build.gradle.kts
+          echo "=== gradle.properties ==="
+          cat gradle.properties || true
 
       - name: Verify pure-native source contract
         working-directory: native-build/Environmental-Studies-v2.0.0-native
