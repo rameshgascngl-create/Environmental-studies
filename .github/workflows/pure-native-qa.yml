@@ -1376,7 +1376,7 @@ jobs:
           RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
           cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.5-DEVICE-QA.apk
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
-          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-evidence-v245.txt qa-artifact/
+          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
           cp v245-size-dex-report.txt release-signing-status.txt qa-artifact/
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
@@ -1389,14 +1389,23 @@ jobs:
           cp V243_LIVING_ENVIRONMENT_AUDIT.json qa-artifact/
           cp V243_VISUAL_ATLAS_COMPLETION_AUDIT.json qa-artifact/
           cp V244_RELEASE_READINESS_AUDIT.json qa-artifact/
+          cp V245_RELEASE_CANDIDATE_AUDIT.json V245_OPTION_DIFF.json V245_QUIZ_VALIDATION.json V245_PARITY_AUDIT.json qa-artifact/
+          cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
+          cp baseline-profile-status.txt androidsvg-emulator-status.txt qa-artifact/
+          cp -R qa-svg-androidsvg qa-artifact/androidsvg-tamil-renders
           cp ../../FACTS_TO_VERIFY.md qa-artifact/
           cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
           tar -czf qa-artifact/v245-reconstructed-source.tar.gz \
-            app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro
+            app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro \
+            app/src/androidTest baselineprofile settings.gradle.kts build.gradle.kts gradle.properties
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v245_release_candidate.json
+          UNSIGNED_AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1 || true)"
+          if [ -n "$UNSIGNED_AAB" ] && [ -f "$UNSIGNED_AAB" ]; then
+            cp "$UNSIGNED_AAB" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-AAB-QA.aab
+          fi
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
 
           # Preserve the reconstructed Kotlin/Gradle/manifest sources as Task B audit evidence.
