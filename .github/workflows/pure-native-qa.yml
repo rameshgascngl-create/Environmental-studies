@@ -57,7 +57,7 @@ jobs:
               "ci/apply_v240_b1_architecture.py",
               "ci/apply_v240_b2_state.py",
               "ci/apply_v240_b3_compose_stability.py",
-              "ci/apply_v240_c1_png_decode.py",
+              "ci/apply_v240_c1_png_decode.py",\n              "ci/apply_v240_c3_tamil_font.py",\n              "FACTS_TO_VERIFY.md",\n              "overlay/v2.4/app/src/main/res/font/noto_sans_tamil.ttf",\n              "overlay/v2.4/app/src/main/res/raw/noto_sans_tamil_ofl.txt",
               "overlay/v2.4/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/LearningStateViewModel.kt",
           }
           assert files==expected, (files-expected, expected-files)
@@ -659,6 +659,27 @@ jobs:
           assert "inSampleSize = sample" in helper
           PY
 
+      - name: Apply Task C3 bundled Noto Sans Tamil
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../../ci/apply_v240_c3_tamil_font.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          audit=json.loads(Path("V240_C3_TAMIL_FONT_AUDIT.json").read_text())
+          assert audit["font_family"]=="Noto Sans Tamil"
+          assert audit["font_bytes"]==340668
+          assert audit["compose_font_family_declared"] is True
+          assert audit["compose_typography_applied"] is True
+          assert audit["androidsvg_1_4_resolver_registered"] is True
+          assert audit["tamil_svg_count"]==18
+          assert audit["all_svg_count"]==36
+          assert audit["tamil_svgs_explicit_font_count"]==18
+          assert audit["licence_bundled"] is True
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -799,6 +820,8 @@ jobs:
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
           cp V240_C1_IMAGE_DECODE_AUDIT.json qa-artifact/
+          cp V240_C3_TAMIL_FONT_AUDIT.json qa-artifact/
+          cp ../../FACTS_TO_VERIFY.md qa-artifact/
           cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
