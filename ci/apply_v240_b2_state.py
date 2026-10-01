@@ -110,6 +110,13 @@ for old, new in [
 ]:
     nav = nav.replace(old, new)
 
+# Convert any remaining direct route assignments in navigation controls.
+nav = re.sub(
+    r'(?m)(?<!val )(?<!var )\\broute\\s*=\\s*"([^"]+)"',
+    lambda match: f'learningState.setRoute("{match.group(1)}")',
+    nav,
+)
+
 assert "languageName =" not in "\n".join(
     line for line in nav.splitlines()
     if "val languageName" not in line
