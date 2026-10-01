@@ -1,9 +1,9 @@
-name: Environmental Studies v2.4.5 Academic Quiz QA
+name: Environmental Studies v2.4.5 Quiz Device Gate QA
 
 on:
   push:
     branches:
-      - academic/v2.4.5-quiz-bank-20261001
+      - qa/v2.4.5-quiz-device-gate-20261001
   workflow_dispatch:
 
 permissions:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   build-native-apk:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify v2.4.5 academic branch scope
+      - name: Verify v2.4.5 quiz device-gate branch scope
         shell: bash
         run: |
           set -euo pipefail
@@ -71,6 +71,8 @@ jobs:
               "FACTS_TO_VERIFY.md",
               "overlay/v2.4/app/src/main/res/font/noto_sans_tamil.ttf",
               "overlay/v2.4/app/src/main/res/raw/noto_sans_tamil_ofl.txt",
+              "V245_QUIZ_DEVICE_GATE_AUDIT.md",
+              "ci/apply_v245_quiz_device_gate.py",
               "V244_ACADEMIC_CONTENT_QUIZ_AUDIT.md",
               "V244_QUIZ_BANK_ACADEMIC_AUDIT.md",
               "ci/v245quizparts/part00",
@@ -984,6 +986,51 @@ jobs:
           assert hashlib.sha256(Path("app/src/main/res/raw/book_content.json").read_bytes()).hexdigest()=="782c3dd08a8b45f221b2ce44ac3a28cf00532dc03112645bbe671c6e4ee031b4"
           PY
 
+      - name: Apply v2.4.5 quiz device-gate correction and instrumentation
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/apply_v245_quiz_device_gate.py
+          python ../../ci/apply_v245_quiz_device_gate.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          audit=json.loads(Path("V245_QUIZ_DEVICE_GATE_AUDIT.json").read_text())
+          assert audit["versionName"]=="2.4.5"
+          assert audit["versionCode"]==20405
+          assert audit["scope"]=="quiz device-gate correction and instrumentation only"
+          assert audit["score_localised_in_tamil"] is True
+          assert audit["english_score_preserved"] is True
+          assert audit["quiz_content_changed"] is False
+          assert audit["lesson_content_changed"] is False
+          assert audit["figure_assets_changed"] is False
+          assert audit["navigation_logic_changed"] is False
+          assert audit["signing_changed"] is False
+
+          quiz=Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/QuizScreen.kt").read_text()
+          assert '"மதிப்பெண்: $score / ${unit.quiz.size}"' in quiz
+          assert '"Score: $score / ${unit.quiz.size}"' in quiz
+
+          test=Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/QuizDeviceQaTest.kt")
+          assert test.is_file()
+          test_text=test.read_text()
+          for required in [
+              "quizBilingualStateRotationAndBackNavigation",
+              "SCREEN_ORIENTATION_LANDSCAPE",
+              "SCREEN_ORIENTATION_PORTRAIT",
+              "Check answers",
+              "மதிப்பெண்:",
+              "onBackPressedDispatcher",
+          ]:
+              assert required in test_text, required
+
+          book=json.loads(Path("app/src/main/res/raw/book_content.json").read_text())
+          assert sum(len(u["quiz"]) for u in book["units"])==90
+          assert all(len(u["quiz"])==10 for u in book["units"])
+          PY
+
       - name: Preserve open-source licence resources through release shrinking
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -1050,6 +1097,29 @@ jobs:
             echo "v245_minified_unsigned_release_apk_bytes=$RELEASE_SIZE"
             echo "v245_minified_unsigned_release_dex_count=$RELEASE_DEX"
           } | tee v245-size-dex-report.txt
+
+      - name: Run v2.4.5 quiz emulator instrumentation gate
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: cd native-build/Environmental-Studies-v2.0.0-native && gradle --no-daemon :app:connectedDebugAndroidTest -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+
+      - name: Record v2.4.5 quiz emulator gate
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d app/build/outputs/androidTest-results/connected
+          {
+            echo "emulator_api=35"
+            echo "emulator_profile=pixel_6"
+            echo "quiz_instrumentation=PASS"
+            echo "physical_device_verified=false"
+          } | tee v245-quiz-emulator-gate.txt
 
       - name: Build signed release APK and AAB when original signing secrets are present
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1135,7 +1205,7 @@ jobs:
             echo "APK_SHA256=$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
           } | tee qa-evidence-v245.txt
 
-      - name: Prepare v2.4.5 academic QA artefact
+      - name: Prepare v2.4.5 quiz device-gate QA artefact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1160,6 +1230,17 @@ jobs:
           cp V243_VISUAL_ATLAS_COMPLETION_AUDIT.json qa-artifact/
           cp V244_RELEASE_READINESS_AUDIT.json qa-artifact/
           cp V245_QUIZ_BANK_AUDIT.json V245_QUIZ_BANK_AUDIT.md qa-artifact/
+          cp V245_QUIZ_DEVICE_GATE_AUDIT.json V245_QUIZ_DEVICE_GATE_AUDIT.md qa-artifact/
+          cp ../../V245_QUIZ_DEVICE_GATE_AUDIT.md qa-artifact/V245_QUIZ_DEVICE_GATE_BRANCH_AUDIT.md
+          cp v245-quiz-emulator-gate.txt qa-artifact/
+          mkdir -p qa-artifact/androidTest
+          cp app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/QuizDeviceQaTest.kt qa-artifact/androidTest/
+          if [ -d app/build/reports/androidTests ]; then
+            cp -r app/build/reports/androidTests qa-artifact/androidTest/reports
+          fi
+          if [ -d app/build/outputs/androidTest-results ]; then
+            cp -r app/build/outputs/androidTest-results qa-artifact/androidTest/results
+          fi
           cp ../../V244_QUIZ_BANK_ACADEMIC_AUDIT.md qa-artifact/
           cp ../../FACTS_TO_VERIFY.md qa-artifact/
           cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
@@ -1188,6 +1269,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.5-ACADEMIC-QUIZ-QA
+          name: Environmental-Studies-v2.4.5-QUIZ-DEVICE-GATE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
