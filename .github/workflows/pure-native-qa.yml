@@ -1,9 +1,9 @@
-name: Environmental Studies v2.3.0 Visual Audio Learning QA
+name: Environmental Studies v2.4.0 Audit Verification
 
 on:
   push:
     branches:
-      - feature/v2.3.0-visual-audio-learning-20261001
+      - hardening/v2.4.0-audit-20261001
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ jobs:
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
-      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/feature/v2.3.0-visual-audio-learning-20261001/site/privacy-policy.html
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/hardening/v2.4.0-audit-20261001/site/privacy-policy.html
       V221_BOOK_SHA256: 766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599
       V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
       V223_BOOK_SHA256: 1f3b63f25719a7b495528770db4853f01461ebbd4b2b75136235d31ce6ddd211
@@ -28,29 +28,20 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify v2.3.0 branch scope
+      - name: Verify audit branch scope
         shell: bash
         run: |
           set -euo pipefail
-          BASE=7fbdf3b80250649b4c3776bee12e1771d0ae4fb5
+          BASE=e00284feefa6544081ee13d58eeee7e57121582c
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
-          git diff --name-only "$BASE"..HEAD | tee v230-branch-files.txt
+          git diff --name-only "$BASE"..HEAD | tee v240-audit-branch-files.txt
           python - <<'PY'
           import subprocess
           files=set(subprocess.check_output(
-              ["git","diff","--name-only","7fbdf3b80250649b4c3776bee12e1771d0ae4fb5..HEAD"],
+              ["git","diff","--name-only","e00284feefa6544081ee13d58eeee7e57121582c..HEAD"],
               text=True
           ).splitlines())
-          expected={
-              ".github/workflows/pure-native-qa.yml",
-              "ci/apply_v230_learning_experience.py",
-              "V230_PROVENANCE.md",
-              "V230_LEARNING_EXPERIENCE_AUDIT.md",
-              "overlay/v2.3/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/AnimationNarration.kt",
-              "overlay/v2.3/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/UnitScenes.kt",
-              "overlay/v2.3/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/EnvironmentalAnimations.kt",
-              "overlay/v2.3/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt",
-          }
+          expected={".github/workflows/pure-native-qa.yml","ci/audit_v240_findings.py"}
           assert files==expected, (files-expected, expected-files)
           PY
 
@@ -500,6 +491,14 @@ jobs:
           assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
           PY
 
+      - name: Verify reported v2.3.0 audit findings
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../../ci/audit_v240_findings.py
+          cat V240_STATIC_FINDINGS.json
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -582,7 +581,7 @@ jobs:
           APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
           cp "$APK" qa-artifact/Environmental-Studies-v2.3.0-VISUAL-AUDIO-DEVICE-QA.apk
           cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
-          cp V230_LEARNING_EXPERIENCE_AUDIT.json V230_LEARNING_EXPERIENCE_CHANGELOG.md V230_CHANGED_FILE_INVENTORY.txt qa-artifact/
+          cp V240_STATIC_FINDINGS.json qa-artifact/\n          cp V230_LEARNING_EXPERIENCE_AUDIT.json V230_LEARNING_EXPERIENCE_CHANGELOG.md V230_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp V225_NAVIGATION_UX_AUDIT.json V225_NAVIGATION_UX_CHANGELOG.md V225_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v224_FROZEN.json
           cp V224_TAMIL_NATURALISATION_AUDIT.json V224_TAMIL_NATURALISATION_CHANGELOG.md V224_CHANGED_FILE_INVENTORY.txt qa-artifact/
