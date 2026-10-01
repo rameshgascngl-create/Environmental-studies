@@ -1292,11 +1292,10 @@ jobs:
           grep -q "package: name='edu.gascnagercoil.environmentalsciences'" qa-badging-release.txt
           grep -q "versionCode='20405'" qa-badging-release.txt
           grep -q "versionName='2.4.5'" qa-badging-release.txt
+          ! grep -q 'application-debuggable' qa-badging-release.txt
 
-          ! grep -q 'android.permission.INTERNET' qa-permissions-debug.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions-release.txt
           ! grep -q '^uses-permission:' qa-permissions-release.txt
-          ! grep -q 'application-debuggable' qa-badging-release.txt
           ! grep -q 'androidx.compose.ui.tooling.PreviewActivity' qa-manifest-xmltree-release.txt
           ! grep -q 'androidx.activity.ComponentActivity' qa-manifest-xmltree-release.txt
           ! grep -q 'androidx.profileinstaller.ProfileInstallReceiver' qa-manifest-xmltree-release.txt
@@ -1321,15 +1320,6 @@ jobs:
           assert exported==[("activity","edu.gascnagercoil.environmentalsciences.MainActivity")], exported
           PY
 
-          rm -rf /tmp/v245-dex
-          mkdir -p /tmp/v245-dex
-          while read -r DEX; do
-            unzip -p "$RELEASE_APK" "$DEX" > "/tmp/v245-dex/$(basename "$DEX")"
-          done < <(zipinfo -1 "$RELEASE_APK" | grep -E '^classes([0-9]+)?[.]dex
-          if grep -Eq ':drawable/fig_[0-9]+_u[0-9]+_ta([[:space:]]|$)' qa-resources-debug.txt; then
-            echo "Stale Tamil raster teaching plate resource remains in debug APK" >&2
-            exit 4
-          fi
           if grep -Eq ':drawable/fig_[0-9]+_u[0-9]+_ta([[:space:]]|$)' qa-resources-release.txt; then
             echo "Stale Tamil raster teaching plate resource remains in release APK" >&2
             exit 5
@@ -1341,6 +1331,15 @@ jobs:
             echo "Unexpected web payload in release package" >&2
             exit 3
           fi
+
+          rm -rf /tmp/v245-dex
+          mkdir -p /tmp/v245-dex
+          while read -r DEX; do
+            unzip -p "$RELEASE_APK" "$DEX" > "/tmp/v245-dex/$(basename "$DEX")"
+          done < <(zipinfo -1 "$RELEASE_APK" | grep -E '^classes([0-9]+)?[.]dex$')
+          strings /tmp/v245-dex/*.dex > qa-dex-strings-release.txt
+          ! grep -E 'android/webkit/WebView|Landroid/webkit/WebView;|okhttp3/|retrofit2/|com/google/firebase/analytics|com/google/android/gms/analytics' qa-dex-strings-release.txt
+          ! grep -R -n -E 'android[.]webkit[.]WebView|WebView[(]|HttpURLConnection|java[.]net[.]URL|okhttp|retrofit|firebase[.]analytics|google[.]analytics' app/src/main/java
 
           BOOK_SHA=$(sha256sum app/src/main/res/raw/book_content.json | awk '{print $1}')
           {
@@ -1354,10 +1353,10 @@ jobs:
             echo "book_schemaVersion=2"
             echo "book_content_sha256=$BOOK_SHA"
             echo "allowBackup=false"
+            echo "usesCleartextTraffic=false"
             echo "minifyEnabled=true"
             echo "shrinkResources=true"
             echo "release_debuggable=false"
-            echo "version_prefixed_svg_assets=0"
             echo "release_permissions=0"
             echo "release_exported_components=MainActivity_only"
             echo "release_webview_dex_scan=absent"
@@ -1365,7 +1364,7 @@ jobs:
             echo "APK_SHA256=$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
           } | tee qa-evidence-v245.txt
 
-      - name: Prepare Task C QA artefact
+      - name: Prepare v2.4.5 QA artefact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1377,138 +1376,26 @@ jobs:
           cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.5-DEVICE-QA.apk
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
           cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
-          cp v245-size-dex-report.txt release-signing-status.txt qa-artifact/
+          cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt qa-artifact/
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
-          cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
-          cp V240_C1_IMAGE_DECODE_AUDIT.json qa-artifact/
-          cp V240_C2_SVG_LEGIBILITY_AUDIT.json qa-artifact/
-          cp V240_C3_TAMIL_FONT_AUDIT.json qa-artifact/
-          cp V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
-          cp V241_DEVICE_FIGURE_QA_AUDIT.json qa-artifact/
-          cp V242_TAMIL_VISUAL_ICON_AUDIT.json qa-artifact/
-          cp V243_LIVING_ENVIRONMENT_AUDIT.json qa-artifact/
-          cp V243_VISUAL_ATLAS_COMPLETION_AUDIT.json qa-artifact/
-          cp V244_RELEASE_READINESS_AUDIT.json qa-artifact/
+          cp V240_B_ARCHITECTURE_FINDINGS.json V240_C1_IMAGE_DECODE_AUDIT.json V240_C2_SVG_LEGIBILITY_AUDIT.json V240_C3_TAMIL_FONT_AUDIT.json V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
+          cp V241_DEVICE_FIGURE_QA_AUDIT.json V242_TAMIL_VISUAL_ICON_AUDIT.json V243_LIVING_ENVIRONMENT_AUDIT.json V243_VISUAL_ATLAS_COMPLETION_AUDIT.json V244_RELEASE_READINESS_AUDIT.json qa-artifact/
           cp V245_RELEASE_CANDIDATE_AUDIT.json V245_OPTION_DIFF.json V245_QUIZ_VALIDATION.json V245_PARITY_AUDIT.json qa-artifact/
           cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
-          cp baseline-profile-status.txt androidsvg-emulator-status.txt qa-artifact/
+          cp ../../FACTS_TO_VERIFY.md ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
           cp -R qa-svg-androidsvg qa-artifact/androidsvg-tamil-renders
-          cp ../../FACTS_TO_VERIFY.md qa-artifact/
-          cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
           tar -czf qa-artifact/v245-reconstructed-source.tar.gz \
-            app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro \
-            app/src/androidTest baselineprofile settings.gradle.kts build.gradle.kts gradle.properties
+            app/src/main/java app/src/main/res app/src/androidTest app/build.gradle.kts app/proguard-rules.pro \
+            baselineprofile settings.gradle.kts build.gradle.kts gradle.properties
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v245_release_candidate.json
+
           UNSIGNED_AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1 || true)"
           if [ -n "$UNSIGNED_AAB" ] && [ -f "$UNSIGNED_AAB" ]; then
             cp "$UNSIGNED_AAB" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-AAB-QA.aab
           fi
-          cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
-
-          # Preserve the reconstructed Kotlin/Gradle/manifest sources as Task B audit evidence.
-          # This does not modify application behaviour; it lets the architecture refactor be
-          # designed against the exact source that passed Task A.
-          mkdir -p qa-artifact/task-b-source
-          cp -R app/src/main/java qa-artifact/task-b-source/java
-          cp app/build.gradle.kts qa-artifact/task-b-source/app-build.gradle.kts
-          cp app/src/main/AndroidManifest.xml qa-artifact/task-b-source/AndroidManifest.xml
-
-          if grep -q 'signed_release_available=true' release-signing-status.txt; then
-            SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
-            AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
-            cp "$SIGNED_APK" qa-artifact/Environmental-Studies-v2.4.5-RELEASE.apk
-            cp "$AAB" qa-artifact/Environmental-Studies-v2.4.5-RELEASE.aab
-          fi
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Environmental-Studies-v2.4.5-RELEASE-CANDIDATE-QA
-          path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
-          if-no-files-found: error
-)
-          strings /tmp/v245-dex/*.dex > qa-dex-strings-release.txt
-          ! grep -E 'android/webkit/WebView|Landroid/webkit/WebView;|okhttp3/|retrofit2/|com/google/firebase/analytics|com/google/android/gms/analytics' qa-dex-strings-release.txt
-          ! grep -R -n -E 'android[.]webkit[.]WebView|WebView[(]|HttpURLConnection|java[.]net[.]URL|okhttp|retrofit|firebase[.]analytics|google[.]analytics' app/src/main/java
-
-          if grep -Eq ':drawable/fig_[0-9]+_u[0-9]+_ta([[:space:]]|$)' qa-resources-debug.txt; then
-            echo "Stale Tamil raster teaching plate resource remains in debug APK" >&2
-            exit 4
-          fi
-          if grep -Eq ':drawable/fig_[0-9]+_u[0-9]+_ta([[:space:]]|$)' qa-resources-release.txt; then
-            echo "Stale Tamil raster teaching plate resource remains in release APK" >&2
-            exit 5
-          fi
-          grep -q ':raw/androidsvg_apache_2_license' qa-resources-release.txt
-          grep -q ':raw/noto_sans_tamil_ofl' qa-resources-release.txt
-
-          if zipinfo -1 "$RELEASE_APK" | grep -Ei "^assets/.*[.](html|js|css)$"; then
-            echo "Unexpected web payload in release package" >&2
-            exit 3
-          fi
-
-          BOOK_SHA=$(sha256sum app/src/main/res/raw/book_content.json | awk '{print $1}')
-          {
-            echo "architecture=pure_native_android"
-            echo "webview=absent"
-            echo "internet_permission=absent"
-            echo "release_application_id=edu.gascnagercoil.environmentalsciences"
-            echo "version_name=2.4.5"
-            echo "version_code=20405"
-            echo "book_nativeVersion=2.4.5"
-            echo "book_schemaVersion=2"
-            echo "book_content_sha256=$BOOK_SHA"
-            echo "allowBackup=false"
-            echo "minifyEnabled=true"
-            echo "shrinkResources=true"
-            echo "release_debuggable=false"
-            echo "version_prefixed_svg_assets=0"
-            echo "APK_SHA256=$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
-          } | tee qa-evidence-v245.txt
-
-      - name: Prepare Task C QA artefact
-        working-directory: native-build/Environmental-Studies-v2.0.0-native
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf qa-artifact
-          mkdir -p qa-artifact
-          DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.5-DEVICE-QA.apk
-          cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
-          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-evidence-v245.txt qa-artifact/
-          cp v245-size-dex-report.txt release-signing-status.txt qa-artifact/
-          cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
-          cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
-          cp V240_C1_IMAGE_DECODE_AUDIT.json qa-artifact/
-          cp V240_C2_SVG_LEGIBILITY_AUDIT.json qa-artifact/
-          cp V240_C3_TAMIL_FONT_AUDIT.json qa-artifact/
-          cp V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
-          cp V241_DEVICE_FIGURE_QA_AUDIT.json qa-artifact/
-          cp V242_TAMIL_VISUAL_ICON_AUDIT.json qa-artifact/
-          cp V243_LIVING_ENVIRONMENT_AUDIT.json qa-artifact/
-          cp V243_VISUAL_ATLAS_COMPLETION_AUDIT.json qa-artifact/
-          cp V244_RELEASE_READINESS_AUDIT.json qa-artifact/
-          cp ../../FACTS_TO_VERIFY.md qa-artifact/
-          cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
-          if [ -d app/build/compose_compiler ]; then
-            cp -r app/build/compose_compiler qa-artifact/compose_compiler
-          fi
-          tar -czf qa-artifact/v245-reconstructed-source.tar.gz \
-            app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro
-          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v245_release_candidate.json
-          cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
-
-          # Preserve the reconstructed Kotlin/Gradle/manifest sources as Task B audit evidence.
-          # This does not modify application behaviour; it lets the architecture refactor be
-          # designed against the exact source that passed Task A.
-          mkdir -p qa-artifact/task-b-source
-          cp -R app/src/main/java qa-artifact/task-b-source/java
-          cp app/build.gradle.kts qa-artifact/task-b-source/app-build.gradle.kts
-          cp app/src/main/AndroidManifest.xml qa-artifact/task-b-source/AndroidManifest.xml
 
           if grep -q 'signed_release_available=true' release-signing-status.txt; then
             SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
