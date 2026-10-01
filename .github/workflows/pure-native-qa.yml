@@ -996,7 +996,7 @@ jobs:
           if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
               marker="android {\n"
               assert marker in s, "baselineprofile android block missing"
-              insertion="    compileOptions {\\n        sourceCompatibility = JavaVersion.VERSION_17\\n        targetCompatibility = JavaVersion.VERSION_17\\n    }\\n"
+              insertion="    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n    }\n"
               s=s.replace(marker, marker + insertion, 1)
               p.write_text(s)
           s=p.read_text()
