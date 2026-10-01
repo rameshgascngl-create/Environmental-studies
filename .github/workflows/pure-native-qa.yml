@@ -708,6 +708,14 @@ jobs:
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v240_task_a.json
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
 
+          # Preserve the reconstructed Kotlin/Gradle/manifest sources as Task B audit evidence.
+          # This does not modify application behaviour; it lets the architecture refactor be
+          # designed against the exact source that passed Task A.
+          mkdir -p qa-artifact/task-b-source
+          cp -R app/src/main/java qa-artifact/task-b-source/java
+          cp app/build.gradle.kts qa-artifact/task-b-source/app-build.gradle.kts
+          cp app/src/main/AndroidManifest.xml qa-artifact/task-b-source/AndroidManifest.xml
+
           if grep -q 'signed_release_available=true' release-signing-status.txt; then
             SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
             AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
