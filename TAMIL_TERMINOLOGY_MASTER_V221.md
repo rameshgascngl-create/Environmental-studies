@@ -52,7 +52,7 @@ This master governs lesson titles, prose, summaries, tables, captions, SVG label
 | Exposure | **வெளிப்பாடு (Exposure)** | People/assets/ecosystems located where harm may occur. |
 | Vulnerability | **பாதிப்புக்குள்ளாகும் தன்மை (Vulnerability)** | Prefer this over compressed “பாதிப்புணர்திறன்” in explanatory prose. |
 | Risk | **அபாயம் (Risk)** | Potential consequences under hazard, exposure and vulnerability. |
-| Resilience | **மீட்சித்திறன் (Resilience)** | Use consistently in disaster/climate context. |
+| Resilience | **மீள்தன்மை (Resilience)** | Preferred college/scientific Tamil in this app; use consistently in disaster/climate context. |
 | Invasive alien species | **ஊடுருவும் அயல் இனங்கள் (Invasive alien species)** | Tamil first; English once when first introduced. |
 | Endemism | **உள்ளூரினத் தன்மை (Endemism)** | A taxon naturally restricted to a defined geographic area. |
 | Biodiversity hotspot | **உயிரிய பல்வகைத்தன்மை மிகைப்பகுதி (Biodiversity hotspot)** | Define by exceptional endemism/plant richness plus extensive habitat loss; do not use it simply for any species-rich place. |
