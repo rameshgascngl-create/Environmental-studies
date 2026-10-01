@@ -931,6 +931,20 @@ jobs:
           assert not list(Path("app/src/main/res/drawable-nodpi").glob("fig_*_ta.png"))
           PY
 
+      - name: Preserve open-source licence resources through release shrinking
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/main/res/raw/androidsvg_apache_2_license.txt
+          test -f app/src/main/res/raw/noto_sans_tamil_ofl.txt
+          cat > app/src/main/res/raw/keep.xml <<'EOF'
+          <resources xmlns:tools="http://schemas.android.com/tools"
+              tools:keep="@raw/androidsvg_apache_2_license,@raw/noto_sans_tamil_ofl" />
+          EOF
+          grep -q 'androidsvg_apache_2_license' app/src/main/res/raw/keep.xml
+          grep -q 'noto_sans_tamil_ofl' app/src/main/res/raw/keep.xml
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
