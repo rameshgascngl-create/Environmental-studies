@@ -1181,7 +1181,7 @@ jobs:
           set -euo pipefail
           gradle --no-daemon :app:tasks --all -PPRIVACY_POLICY_URL="$PRIVACY_URL" | tee v245-app-tasks.txt
           grep -q 'generateBaselineProfile' v245-app-tasks.txt
-          gradle --no-daemon :baselineprofile:assemble -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+          gradle --no-daemon :baselineprofile:compileBenchmarkReleaseKotlin -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
           echo "baseline_profile_generation_infrastructure=PASS" | tee baseline-profile-status.txt
           echo "baseline_profile_device_generation=requires_connected_device_and_installable_release" | tee -a baseline-profile-status.txt
 
