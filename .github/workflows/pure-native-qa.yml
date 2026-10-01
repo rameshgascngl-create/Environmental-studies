@@ -3,7 +3,7 @@ name: Environmental Studies v2.2.4 Tamil Naturalisation QA
 on:
   push:
     branches:
-      - correction/v2.2.4-tamil-naturalisation-20261001
+      - feature/v2.2.5-lesson-navigation-20261001
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ jobs:
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
-      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/correction/v2.2.4-tamil-naturalisation-20261001/site/privacy-policy.html
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/feature/v2.2.5-lesson-navigation-20261001/site/privacy-policy.html
       V221_BOOK_SHA256: 766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599
       V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
       V223_BOOK_SHA256: 1f3b63f25719a7b495528770db4853f01461ebbd4b2b75136235d31ce6ddd211
@@ -344,6 +344,22 @@ jobs:
           print("\n".join(changed))
           assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
           PY
+
+      - name: Diagnostic lesson navigation source
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt
+          echo '===== ROUTE/NAVIGATION ====='
+          grep -n -E 'route|navigate|back|BackHandler|LessonScreen|Pdf|Print|share|Share' "$APP" || true
+          echo '===== APP 1-180 ====='
+          sed -n '1,180p' "$APP"
+          echo '===== LESSON AREA ====='
+          LINE=$(grep -n 'private fun LessonScreen' "$APP" | head -n1 | cut -d: -f1)
+          START=$((LINE-20))
+          END=$((LINE+180))
+          sed -n "${START},${END}p" "$APP"
 
       - name: Verify public Privacy Policy URL
         shell: bash
