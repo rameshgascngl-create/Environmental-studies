@@ -1,9 +1,9 @@
-name: Environmental Studies v2.2.5 Lesson Navigation QA
+name: Environmental Studies v2.3.0 Visual Audio Learning QA
 
 on:
   push:
     branches:
-      - feature/v2.2.5-lesson-navigation-20261001
+      - feature/v2.3.0-visual-audio-learning-20261001
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ jobs:
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
-      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/feature/v2.2.5-lesson-navigation-20261001/site/privacy-policy.html
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/feature/v2.3.0-visual-audio-learning-20261001/site/privacy-policy.html
       V221_BOOK_SHA256: 766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599
       V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
       V223_BOOK_SHA256: 1f3b63f25719a7b495528770db4853f01461ebbd4b2b75136235d31ce6ddd211
@@ -28,24 +28,28 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify v2.2.5 branch scope
+      - name: Verify v2.3.0 branch scope
         shell: bash
         run: |
           set -euo pipefail
-          BASE=27e6035bbdb3611d7dfd6a07042e6e89ad1408ed
+          BASE=7fbdf3b80250649b4c3776bee12e1771d0ae4fb5
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
-          git diff --name-only "$BASE"..HEAD | tee v225-branch-files.txt
+          git diff --name-only "$BASE"..HEAD | tee v230-branch-files.txt
           python - <<'PY'
           import subprocess
           files=set(subprocess.check_output(
-              ["git","diff","--name-only","27e6035bbdb3611d7dfd6a07042e6e89ad1408ed..HEAD"],
+              ["git","diff","--name-only","7fbdf3b80250649b4c3776bee12e1771d0ae4fb5..HEAD"],
               text=True
           ).splitlines())
           expected={
               ".github/workflows/pure-native-qa.yml",
-              "ci/apply_v225_navigation.py",
-              "V225_PROVENANCE.md",
-              "V225_NAVIGATION_UX_AUDIT.md",
+              "ci/apply_v230_learning_experience.py",
+              "V230_PROVENANCE.md",
+              "V230_LEARNING_EXPERIENCE_AUDIT.md",
+              "overlay/v2.3/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/AnimationNarration.kt",
+              "overlay/v2.3/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/UnitScenes.kt",
+              "overlay/v2.3/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/EnvironmentalAnimations.kt",
+              "overlay/v2.3/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt",
           }
           assert files==expected, (files-expected, expected-files)
           PY
@@ -412,6 +416,90 @@ jobs:
           assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
           PY
 
+      - name: Apply and audit v2.3.0 learning experience upgrade
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/apply_v230_learning_experience.py
+
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          snap={}
+          for q in Path(".").rglob("*"):
+              if q.is_file() and "/build/" not in str(q):
+                  snap[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
+          Path("/tmp/v225_pre_v230.json").write_text(json.dumps(snap,sort_keys=True))
+          PY
+
+          python ../../ci/apply_v230_learning_experience.py
+
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+
+          audit=json.loads(Path("V230_LEARNING_EXPERIENCE_AUDIT.json").read_text())
+          assert audit["versionName"]=="2.3.0"
+          assert audit["versionCode"]==20300
+          assert audit["book_content_sha256"]=="1bf866f457cdb7c2590469b32d692f56b5000a58ff76eba1604b0ad158962f40"
+          assert audit["book_content_unchanged"] is True
+          assert audit["english_payload_unchanged"] is True
+          assert audit["tamil_payload_unchanged"] is True
+          assert audit["figure_routing_unchanged"] is True
+          assert audit["last_read_per_unit"] is True
+          assert audit["continue_markers"] is True
+          assert audit["realistic_context_scenes"]==9
+          assert audit["new_environmental_animation_pages"]==6
+          assert audit["climate_animation_pages"]==4
+          assert audit["total_narrated_animation_topics"]==10
+          assert audit["android_tts_audio"] is True
+          assert audit["internet_permission_required_for_audio"] is False
+          assert all(audit["checks"].values()), audit["checks"]
+
+          book=Path("app/src/main/res/raw/book_content.json")
+          assert hashlib.sha256(book.read_bytes()).hexdigest()=="1bf866f457cdb7c2590469b32d692f56b5000a58ff76eba1604b0ad158962f40"
+
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 20300' in gradle
+          assert 'versionName = "2.3.0"' in gradle
+
+          app=Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt").read_text()
+          assert 'last_lesson_unit_' in app
+          assert 'தொடர்க · கடைசியாக வாசித்த பாடம்' in app
+          assert 'UnitSceneHero(unit.number)' in app
+
+          sim=Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/SimulationScreen.kt").read_text()
+          assert 'EnvironmentalProcessExplorer(language)' in sim
+
+          ui=Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui")
+          for name in ["AnimationNarration.kt","UnitScenes.kt","EnvironmentalAnimations.kt","ClimateEvents.kt"]:
+              assert (ui/name).is_file(), name
+
+          pre=json.loads(Path("/tmp/v225_pre_v230.json").read_text())
+          post={}
+          for q in Path(".").rglob("*"):
+              if q.is_file() and "/build/" not in str(q):
+                  post[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
+          changed=sorted(p for p in set(pre)|set(post) if pre.get(p)!=post.get(p))
+          Path("V230_CHANGED_FILE_INVENTORY.txt").write_text("\n".join(changed)+"\n")
+          expected={
+              "V230_LEARNING_EXPERIENCE_AUDIT.json",
+              "V230_LEARNING_EXPERIENCE_CHANGELOG.md",
+              "app/build.gradle.kts",
+              "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt",
+              "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/VisualLearning.kt",
+              "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/SimulationScreen.kt",
+              "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/AnimationNarration.kt",
+              "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/UnitScenes.kt",
+              "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/EnvironmentalAnimations.kt",
+              "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt",
+          }
+          print("V230_CHANGED_FILES",len(changed))
+          print("\n".join(changed))
+          assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -449,8 +537,8 @@ jobs:
           "$AAPT" dump badging "$APK" | tee qa-badging.txt
           "$AAPT" dump permissions "$APK" | tee qa-permissions.txt
           grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging.txt
-          grep -q "versionCode='20205'" qa-badging.txt
-          grep -q "versionName='2.2.5-debug'" qa-badging.txt
+          grep -q "versionCode='20300'" qa-badging.txt
+          grep -q "versionName='2.3.0-debug'" qa-badging.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions.txt
           if zipinfo -1 "$APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
             echo "Unexpected web payload" >&2
@@ -462,8 +550,8 @@ jobs:
             echo "webview=absent"
             echo "internet_permission=absent"
             echo "application_id=edu.gascnagercoil.environmentalsciences.debug"
-            echo "version_name=2.2.5-debug"
-            echo "version_code=20205"
+            echo "version_name=2.3.0-debug"
+            echo "version_code=20300"
             echo "units=9"
             echo "lessons=46"
             echo "book_content_sha256=$V224_BOOK_SHA256"
@@ -476,24 +564,32 @@ jobs:
             echo "lesson_previous_next_persistent=true"
             echo "lesson_back_targets_current_unit=true"
             echo "print_pdf_secondary_actions=true"
+            echo "last_read_per_unit=true"
+            echo "continue_markers=true"
+            echo "realistic_context_scenes=9"
+            echo "new_environmental_animation_pages=6"
+            echo "total_narrated_animation_topics=10"
+            echo "android_tts_audio=true"
             echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
           } | tee qa-evidence.txt
 
-      - name: Prepare v2.2.5 navigation device-QA artifact
+      - name: Prepare v2.3.0 visual-audio device-QA artifact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p qa-artifact
           APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$APK" qa-artifact/Environmental-Studies-v2.2.5-NAVIGATION-DEVICE-QA.apk
+          cp "$APK" qa-artifact/Environmental-Studies-v2.3.0-VISUAL-AUDIO-DEVICE-QA.apk
           cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
+          cp V230_LEARNING_EXPERIENCE_AUDIT.json V230_LEARNING_EXPERIENCE_CHANGELOG.md V230_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp V225_NAVIGATION_UX_AUDIT.json V225_NAVIGATION_UX_CHANGELOG.md V225_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v224_FROZEN.json
           cp V224_TAMIL_NATURALISATION_AUDIT.json V224_TAMIL_NATURALISATION_CHANGELOG.md V224_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp V223_TAMIL_COHERENCE_AUDIT.json V223_TAMIL_COHERENCE_CHANGELOG.md V223_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp V222_TAMIL_COLLEGE_AUDIT.json V222_TAMIL_EDITORIAL_CHANGELOG.md V222_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp V221_STATIC_AUDIT.json V221_PARITY_REGISTER.md V221_SCI_VIS_REGISTER.md V221_EDITORIAL_CHANGELOG.md qa-artifact/
+          cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
           cp ../../V225_PROVENANCE.md ../../V225_NAVIGATION_UX_AUDIT.md qa-artifact/
           cp ../../V224_PROVENANCE.md ../../V224_TAMIL_NATURALISATION_AUDIT.md ../../TAMIL_TERMINOLOGY_MASTER_V224.md qa-artifact/
           cp ../../V223_PROVENANCE.md ../../V223_TAMIL_COHERENCE_AUDIT.md qa-artifact/
@@ -502,6 +598,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.2.5-NAVIGATION-DEVICE-QA
+          name: Environmental-Studies-v2.3.0-VISUAL-AUDIO-DEVICE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
