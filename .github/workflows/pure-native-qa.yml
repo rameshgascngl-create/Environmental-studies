@@ -56,7 +56,7 @@ jobs:
               "ci/audit_v240_b_architecture.py",
               "ci/apply_v240_b1_architecture.py",
               "ci/apply_v240_b2_state.py",
-              "ci/apply_v240_b3_compose_stability.py",
+              "ci/apply_v240_b3_compose_stability.py",\n              "ci/apply_v240_c1_png_decode.py",
               "overlay/v2.4/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/LearningStateViewModel.kt",
           }
           assert files==expected, (files-expected, expected-files)
@@ -632,6 +632,32 @@ jobs:
           }, indent=2)+"\n")
           PY
 
+      - name: Apply Task C1 bounded PNG decoding
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../../ci/apply_v240_c1_png_decode.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          audit=json.loads(Path("V240_C1_IMAGE_DECODE_AUDIT.json").read_text())
+          assert audit["png_count"]==64
+          assert audit["inline_target_width_px"]==800
+          assert audit["bounded_inline_decoder_present"] is True
+          assert audit["full_resolution_zoom_retained"] is True
+          assert audit["estimated_all_inline_rgba_bytes"] < audit["theoretical_all_full_rgba_bytes"]
+          assert audit["measured_peak_heap_2gb_emulator"] is False
+
+          native=Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/NativeContent.kt").read_text()
+          helper=Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/FigureBitmap.kt").read_text()
+          assert native.count("rememberDownsampledFigurePainter(resId)") == 1
+          assert native.count("painterResource(resId)") == 1
+          assert "BitmapFactory.Options" in helper
+          assert "inSampleSize = sample" in helper
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -771,6 +797,7 @@ jobs:
           cp v240-size-dex-report.txt release-signing-status.txt qa-artifact/
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
+          cp V240_C1_IMAGE_DECODE_AUDIT.json qa-artifact/
           cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
