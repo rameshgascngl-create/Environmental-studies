@@ -1,9 +1,9 @@
-name: Environmental Studies v2.4.0 Audit Verification
+name: Environmental Studies v2.4.1 Device Figure QA
 
 on:
   push:
     branches:
-      - hardening/v2.4.0-audit-20261001
+      - correction/v2.4.1-device-figure-qa-20261001
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ jobs:
     env:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
-      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/hardening/v2.4.0-audit-20261001/site/privacy-policy.html
+      PRIVACY_URL: https://raw.githubusercontent.com/rameshgascngl-create/Environmental-studies/correction/v2.4.1-device-figure-qa-20261001/site/privacy-policy.html
       V221_BOOK_SHA256: 766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599
       V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
       V223_BOOK_SHA256: 1f3b63f25719a7b495528770db4853f01461ebbd4b2b75136235d31ce6ddd211
@@ -32,7 +32,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify v2.4.0 controlled branch scope
+      - name: Verify v2.4.1 controlled branch scope
         shell: bash
         run: |
           set -euo pipefail
@@ -61,6 +61,7 @@ jobs:
               "ci/apply_v240_c2_svg_legibility.py",
               "ci/apply_v240_c3_tamil_font.py",
               "ci/apply_v240_c4_accessibility.py",
+              "ci/apply_v241_device_figure_qa.py",
               "FACTS_TO_VERIFY.md",
               "overlay/v2.4/app/src/main/res/font/noto_sans_tamil.ttf",
               "overlay/v2.4/app/src/main/res/raw/noto_sans_tamil_ofl.txt",
@@ -733,6 +734,39 @@ jobs:
           assert audit["font_scaling_200_percent_physically_verified"] is False
           PY
 
+      - name: Apply v2.4.1 physical-device figure viewer correction
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../../ci/apply_v241_device_figure_qa.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          audit=json.loads(Path("V241_DEVICE_FIGURE_QA_AUDIT.json").read_text())
+          assert audit["versionName"]=="2.4.1"
+          assert audit["versionCode"]==20401
+          assert audit["platform_default_dialog_width_disabled_png"] is True
+          assert audit["platform_default_dialog_width_disabled_svg"] is True
+          assert audit["one_tap_overview_scale"] is True
+          assert audit["one_tap_reading_scale"] is True
+          assert audit["pan_is_bounded_to_viewport"] is True
+          assert audit["bilingual_close"] is True
+          assert audit["bilingual_gesture_hint"] is True
+          assert audit["figure_assets_reencoded"] is False
+          assert audit["scientific_content_changed"] is False
+          assert audit["physical_device_retest_required"] is True
+
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 20401' in gradle
+          assert 'versionName = "2.4.1"' in gradle
+
+          book=json.loads(Path("app/src/main/res/raw/book_content.json").read_text())
+          assert book["schemaVersion"]==1
+          assert book["nativeVersion"]=="2.4.1"
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -754,7 +788,7 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Build v2.4.0 debug QA and exercise minified release pipeline
+      - name: Build v2.4.1 debug QA and exercise minified release pipeline
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -780,11 +814,11 @@ jobs:
           {
             echo "v230_debug_apk_bytes_reference=unknown_in_this_run"
             echo "v230_debug_dex_reference=8"
-            echo "v240_debug_apk_bytes=$DEBUG_SIZE"
-            echo "v240_debug_dex_count=$DEBUG_DEX"
-            echo "v240_minified_unsigned_release_apk_bytes=$RELEASE_SIZE"
-            echo "v240_minified_unsigned_release_dex_count=$RELEASE_DEX"
-          } | tee v240-size-dex-report.txt
+            echo "v241_debug_apk_bytes=$DEBUG_SIZE"
+            echo "v241_debug_dex_count=$DEBUG_DEX"
+            echo "v241_minified_unsigned_release_apk_bytes=$RELEASE_SIZE"
+            echo "v241_minified_unsigned_release_dex_count=$RELEASE_DEX"
+          } | tee v241-size-dex-report.txt
 
       - name: Build signed release APK and AAB when original signing secrets are present
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -806,7 +840,7 @@ jobs:
             echo "Original production signing secrets are not configured on this runner; no replacement key was generated." | tee -a "$STATUS"
           fi
 
-      - name: Inspect v2.4.0 package identity and offline contract
+      - name: Inspect v2.4.1 package identity and offline contract
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -823,12 +857,12 @@ jobs:
           "$AAPT" dump permissions "$RELEASE_APK" | tee qa-permissions-release.txt
 
           grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging-debug.txt
-          grep -q "versionCode='20400'" qa-badging-debug.txt
-          grep -q "versionName='2.4.0-debug'" qa-badging-debug.txt
+          grep -q "versionCode='20401'" qa-badging-debug.txt
+          grep -q "versionName='2.4.1-debug'" qa-badging-debug.txt
 
           grep -q "package: name='edu.gascnagercoil.environmentalsciences'" qa-badging-release.txt
-          grep -q "versionCode='20400'" qa-badging-release.txt
-          grep -q "versionName='2.4.0'" qa-badging-release.txt
+          grep -q "versionCode='20401'" qa-badging-release.txt
+          grep -q "versionName='2.4.1'" qa-badging-release.txt
 
           ! grep -q 'android.permission.INTERNET' qa-permissions-debug.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions-release.txt
@@ -844,9 +878,9 @@ jobs:
             echo "webview=absent"
             echo "internet_permission=absent"
             echo "release_application_id=edu.gascnagercoil.environmentalsciences"
-            echo "version_name=2.4.0"
-            echo "version_code=20400"
-            echo "book_nativeVersion=2.4.0"
+            echo "version_name=2.4.1"
+            echo "version_code=20401"
+            echo "book_nativeVersion=2.4.1"
             echo "book_schemaVersion=1"
             echo "book_content_sha256=$BOOK_SHA"
             echo "allowBackup=false"
@@ -855,7 +889,7 @@ jobs:
             echo "release_debuggable=false"
             echo "version_prefixed_svg_assets=0"
             echo "APK_SHA256=$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
-          } | tee qa-evidence-v240-a.txt
+          } | tee qa-evidence-v241.txt
 
       - name: Prepare Task C QA artefact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -866,24 +900,25 @@ jobs:
           mkdir -p qa-artifact
           DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
           RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.0-TASK-C-DEVICE-QA.apk
-          cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.0-UNSIGNED-R8-QA.apk
-          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-evidence-v240-a.txt qa-artifact/
-          cp v240-size-dex-report.txt release-signing-status.txt qa-artifact/
+          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.1-DEVICE-QA.apk
+          cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.1-UNSIGNED-R8-QA.apk
+          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-evidence-v241.txt qa-artifact/
+          cp v241-size-dex-report.txt release-signing-status.txt qa-artifact/
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
           cp V240_C1_IMAGE_DECODE_AUDIT.json qa-artifact/
           cp V240_C2_SVG_LEGIBILITY_AUDIT.json qa-artifact/
           cp V240_C3_TAMIL_FONT_AUDIT.json qa-artifact/
           cp V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
+          cp V241_DEVICE_FIGURE_QA_AUDIT.json qa-artifact/
           cp ../../FACTS_TO_VERIFY.md qa-artifact/
           cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
-          tar -czf qa-artifact/v240-reconstructed-source.tar.gz \
+          tar -czf qa-artifact/v241-reconstructed-source.tar.gz \
             app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro
-          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v240_task_a.json
+          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v241_device_qa.json
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
 
           # Preserve the reconstructed Kotlin/Gradle/manifest sources as Task B audit evidence.
@@ -897,12 +932,12 @@ jobs:
           if grep -q 'signed_release_available=true' release-signing-status.txt; then
             SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
             AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
-            cp "$SIGNED_APK" qa-artifact/Environmental-Studies-v2.4.0-RELEASE.apk
-            cp "$AAB" qa-artifact/Environmental-Studies-v2.4.0-RELEASE.aab
+            cp "$SIGNED_APK" qa-artifact/Environmental-Studies-v2.4.1-RELEASE.apk
+            cp "$AAB" qa-artifact/Environmental-Studies-v2.4.1-RELEASE.aab
           fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.0-TASK-C-QA
+          name: Environmental-Studies-v2.4.1-DEVICE-FIGURE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
