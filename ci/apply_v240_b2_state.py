@@ -26,7 +26,7 @@ gradle = GRADLE.read_text(encoding="utf-8")
 if 'androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4' not in gradle:
     gradle = replace_once(
         gradle,
-        'implementation("androidx.activity:activity-compose:1.10.1")',
+        'implementation("androidx.activity:activity-compose:1.11.0")',
         'implementation("androidx.activity:activity-compose:1.10.1")\n    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")',
         "Lifecycle ViewModel dependency",
     )
