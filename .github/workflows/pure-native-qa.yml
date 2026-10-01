@@ -950,6 +950,190 @@ jobs:
           grep -q 'androidsvg_apache_2_license' app/src/main/res/raw/keep.xml
           grep -q 'noto_sans_tamil_ofl' app/src/main/res/raw/keep.xml
 
+      - name: Audit v2.4.4 SVG layout baseline with transform resolution
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp app/src/main/res/raw/book_content.json /tmp/book-content-v244.json
+          python -m pip install --quiet pillow jsonschema
+          EN_FONT="$(fc-match -f '%{file}' 'Noto Sans' | head -n1)"
+          test -f "$EN_FONT"
+          python ../../ci/audit_v245_svg_layout.py app/src/main/res/raw \
+            --ta-font app/src/main/res/font/noto_sans_tamil.ttf \
+            --en-font "$EN_FONT" \
+            --out V245_SVG_LAYOUT_BEFORE.json
+          python - <<'PY'
+          import json
+          a=json.load(open("V245_SVG_LAYOUT_BEFORE.json"))
+          assert a["files"] >= 64, a["files"]
+          l22=next(x for x in a["results"] if x["file"]=="sci_u02_l22_trophic_ta.svg")
+          assert l22["overflow"], l22
+          print("V245_SVG_BASELINE_FILES",a["files"])
+          print("V245_SVG_BASELINE_OVERFLOWS",a["overflowCount"])
+          print("V245_SVG_BASELINE_OVERLAP_LEADS",a["overlapLeadCount"])
+          PY
+
+      - name: Apply v2.4.5 release candidate corrections
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d ../../ci/v245_release_candidate.py.gz.b64 | gzip -dc > /tmp/apply_v245_release_candidate.py
+          sha256sum /tmp/apply_v245_release_candidate.py | tee V245_TRANSFORM_SHA256.txt
+          python -m py_compile /tmp/apply_v245_release_candidate.py
+          python /tmp/apply_v245_release_candidate.py
+          python ../../ci/v245_explanation_refinement.py
+          python ../../ci/v245_accessibility_refinement.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          audit=json.load(open("V245_RELEASE_CANDIDATE_AUDIT.json"))
+          assert audit["versionName"]=="2.4.5"
+          assert audit["versionCode"]==20405
+          assert audit["schemaVersion"]==2
+          assert audit["quizQuestions"]==58
+          assert audit["explanationEnCount"]==58
+          assert audit["explanationTaCount"]==58
+          assert audit["answerPositions"]=={"0":13,"1":16,"2":16,"3":13}
+          assert audit["unitQuizCounts"]==[5,5,7,5,5,5,5,14,7]
+          assert audit["unit8ExactDuplicateStems"]==0
+          assert audit["unit8Restructured"] is False
+          assert audit["androidSvgTamilResolverAlreadyPresent"] is True
+          assert audit["englishNaaqsCounterpartAdded"] is True
+          assert audit["creditLine"]=="Department of Zoology, GASC, Nagercoil / Created by R. Ramesh"
+          assert audit["privacyVersion"]=="1.1 · 1 October 2026"
+          assert audit["baselineProfileModuleAdded"] is True
+          assert audit["baselineProfileGeneratorAdded"] is True
+          assert audit["androidSvgScreenshotHarnessAdded"] is True
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 20405' in gradle
+          assert 'versionName = "2.4.5"' in gradle
+          assert 'debugImplementation("androidx.compose.ui:ui-tooling")' in gradle
+          assert 'debugImplementation("androidx.compose.ui:ui-test-manifest")' in gradle
+          assert 'isDebuggable = false' in gradle
+          assert 'isMinifyEnabled = true' in gradle
+          assert 'isShrinkResources = true' in gradle
+          assert 'baselineProfile(project(":baselineprofile"))' in gradle
+          assert 'androidx.profileinstaller:profileinstaller:1.4.1' in gradle
+          pg=Path("app/proguard-rules.pro").read_text()
+          assert "com.caverock.androidsvg" in pg
+          assert "environmentalsciences.model" in pg
+          keep=Path("app/src/main/res/raw/keep.xml").read_text()
+          assert 'tools:keep="@raw/*"' in keep
+          sv=Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/SvgFigureBlock.kt").read_text()
+          assert 'resolveFont' in sv and 'noto_sans_tamil' in sv
+          assert 'val figureDescription = svgAriaLabel(context, resId)' in sv
+          PY
+
+      - name: Validate v2.4.5 SVG, quiz and EN-TA parity
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          EN_FONT="$(fc-match -f '%{file}' 'Noto Sans' | head -n1)"
+          python ../../ci/audit_v245_svg_layout.py app/src/main/res/raw \
+            --ta-font app/src/main/res/font/noto_sans_tamil.ttf \
+            --en-font "$EN_FONT" \
+            --out V245_SVG_LAYOUT_AFTER.json
+          python - <<'PY'
+          import json, re, hashlib
+          from pathlib import Path
+          from collections import Counter
+          from PIL import ImageFont
+          from jsonschema import validate
+
+          before=json.load(open("V245_SVG_LAYOUT_BEFORE.json"))
+          after=json.load(open("V245_SVG_LAYOUT_AFTER.json"))
+          assert after["overflowCount"]==0, [
+              (r["file"],r["overflow"]) for r in after["results"] if r.get("overflow")
+          ]
+          assert not any(re.search(r'\brx\s*:',p.read_text()) or re.search(r'\bry\s*:',p.read_text())
+                         for p in Path("app/src/main/res/raw").glob("*.svg"))
+          l22=next(x for x in after["results"] if x["file"]=="sci_u02_l22_trophic_ta.svg")
+          assert not l22["overflow"]
+
+          data=json.load(open("app/src/main/res/raw/book_content.json"))
+          schema=json.load(open("../../ci/v245_quiz_schema.json"))
+          validate(instance=data,schema=schema)
+          assert data["schemaVersion"]==2 and data["nativeVersion"]=="2.4.5"
+          quizzes=[q for u in data["units"] for q in u["quiz"]]
+          assert len(quizzes)==58
+          assert all(q.get("explanationEn","").strip() for q in quizzes)
+          assert all(q.get("explanationTa","").strip() for q in quizzes)
+          positions=Counter(q["answer"] for q in quizzes)
+          assert positions==Counter({0:13,1:16,2:16,3:13})
+
+          old=json.load(open("/tmp/book-content-v244.json"))
+          oldq=[q for u in old["units"] for q in u["quiz"]]
+          font=ImageFont.truetype("app/src/main/res/font/noto_sans_tamil.ttf",24)
+          def strict_longest(q):
+              widths=[font.getlength(o["en"]) for o in q["options"]]
+              a=q["answer"]
+              return widths[a] > max(w for i,w in enumerate(widths) if i!=a) + 0.25
+          old_long=sum(strict_longest(q) for q in oldq)
+          new_long=sum(strict_longest(q) for q in quizzes)
+          assert old_long==22, old_long
+          assert new_long<=17, new_long
+
+          def counts(lang,kind):
+              return sum(1 for u in data["units"] for l in u["lessons"]
+                         for b in l[lang] if b.get("kind")==kind)
+          en_tables=counts("english","table"); ta_tables=counts("tamil","table")
+          assert en_tables==ta_tables==18
+
+          def real_figs(lang):
+              out=[]
+              for u in data["units"]:
+                  for l in u["lessons"]:
+                      for b in l[lang]:
+                          if b.get("kind") in ("figure","svg_figure") and b.get("figure"):
+                              out.append((l["id"],b["figure"]))
+              return out
+          ef=real_figs("english"); tf=real_figs("tamil")
+          assert len(ef)==len(tf)==46, (len(ef),len(tf))
+
+          def list_counts(lang):
+              c=Counter()
+              for u in data["units"]:
+                  for l in u["lessons"]:
+                      c[l["id"]]+=sum(len(b.get("items",[])) for b in l[lang])
+              return c
+          lc_en=list_counts("english"); lc_ta=list_counts("tamil")
+          list_gaps={k:(lc_en[k],lc_ta[k]) for k in sorted(set(lc_en)|set(lc_ta)) if lc_en[k]!=lc_ta[k]}
+
+          privacy=data["privacy"]
+          assert len(privacy["english"])==len(privacy["tamil"])==4
+          assert privacy["version"]=="1.1 · 1 October 2026"
+          assert privacy["credit"]==["Department of Zoology, GASC, Nagercoil / Created by R. Ramesh"]
+
+          quiz_audit={
+              "questions":len(quizzes),
+              "longestCorrectBaselineRenderedWidth":old_long,
+              "longestCorrectAfterRenderedWidth":new_long,
+              "longestCorrectPercent":round(100*new_long/len(quizzes),2),
+              "answerPositions":dict(sorted(positions.items())),
+              "unitCounts":[len(u["quiz"]) for u in data["units"]],
+              "unit8ExactDuplicateStems":len(data["units"][7]["quiz"])-len({q["questionEn"] for q in data["units"][7]["quiz"]}),
+              "unit8Restructured":False,
+              "schemaValidation":"PASS",
+          }
+          Path("V245_QUIZ_VALIDATION.json").write_text(json.dumps(quiz_audit,indent=2)+"\n")
+          parity={
+              "tables":{"english":en_tables,"tamil":ta_tables,"gaps":0},
+              "figures":{"english":len(ef),"tamil":len(tf),"gaps":0},
+              "listItemCountGaps":list_gaps,
+              "privacyParagraphs":{"english":4,"tamil":4},
+              "creditLine":privacy["credit"][0],
+          }
+          Path("V245_PARITY_AUDIT.json").write_text(json.dumps(parity,ensure_ascii=False,indent=2)+"\n")
+          print("V245_SVG_OVERFLOW_BEFORE",before["overflowCount"])
+          print("V245_SVG_OVERFLOW_AFTER",after["overflowCount"])
+          print("V245_LONGEST_CORRECT",new_long,"/",len(quizzes),quiz_audit["longestCorrectPercent"])
+          print("V245_LIST_ITEM_COUNT_GAPS",len(list_gaps))
+          print("V245_BOOK_SHA256",hashlib.sha256(Path("app/src/main/res/raw/book_content.json").read_bytes()).hexdigest())
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
