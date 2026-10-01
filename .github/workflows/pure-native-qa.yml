@@ -1031,7 +1031,18 @@ jobs:
           ! grep -q 'android.permission.INTERNET' qa-permissions-debug.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions-release.txt
 
-          if zipinfo -1 "$DEBUG_APK" | grep -Eq 'res/drawable[^/]*/fig_[0-9]+_u[0-9]+_ta\.png          if zipinfo -1 "$RELEASE_APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
+          if zipinfo -1 "$DEBUG_APK" | grep -Eq 'res/drawable[^/]*/fig_[0-9]+_u[0-9]+_ta[.]png; then
+            echo "Stale Tamil raster teaching plates remain in debug APK" >&2
+            exit 4
+          fi
+          if zipinfo -1 "$RELEASE_APK" | grep -Eq 'res/drawable[^/]*/fig_[0-9]+_u[0-9]+_ta[.]png; then
+            echo "Stale Tamil raster teaching plates remain in release APK" >&2
+            exit 5
+          fi
+          zipinfo -1 "$RELEASE_APK" | grep -q 'res/raw/androidsvg_apache_2_license.txt'
+          zipinfo -1 "$RELEASE_APK" | grep -q 'res/raw/noto_sans_tamil_ofl.txt'
+
+          if zipinfo -1 "$RELEASE_APK" | grep -Ei '^assets/.*[.](html|js|css); then
             echo "Unexpected web payload in release package" >&2
             exit 3
           fi
@@ -1084,7 +1095,7 @@ jobs:
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
-          tar -czf qa-artifact/v243-reconstructed-source.tar.gz \
+          tar -czf qa-artifact/v244-reconstructed-source.tar.gz \
             app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v244_release_readiness.json
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
@@ -1166,7 +1177,7 @@ jobs:
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
-          tar -czf qa-artifact/v243-reconstructed-source.tar.gz \
+          tar -czf qa-artifact/v244-reconstructed-source.tar.gz \
             app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v244_release_readiness.json
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
@@ -1251,7 +1262,7 @@ jobs:
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
-          tar -czf qa-artifact/v243-reconstructed-source.tar.gz \
+          tar -czf qa-artifact/v244-reconstructed-source.tar.gz \
             app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v244_release_readiness.json
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
