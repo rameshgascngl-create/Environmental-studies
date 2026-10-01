@@ -1220,6 +1220,52 @@ jobs:
             echo "Original production signing secrets are not configured on this runner; no replacement key was generated." | tee -a "$STATUS"
           fi
 
+      - name: Enable KVM for Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Render every Tamil SVG through AndroidSVG on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            cd native-build/Environmental-Studies-v2.0.0-native
+            gradle --no-daemon :app:connectedDebugAndroidTest \
+              -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
+              -Pandroid.testInstrumentationRunnerArguments.class=edu.gascnagercoil.environmentalsciences.qa.SvgAndroidSvgScreenshotTest \
+              --stacktrace
+            rm -rf qa-svg-androidsvg
+            mkdir -p qa-svg-androidsvg
+            adb exec-out run-as edu.gascnagercoil.environmentalsciences.debug \
+              tar -C files/svg-androidsvg -cf - . > /tmp/v245-svg-androidsvg.tar
+            tar -xf /tmp/v245-svg-androidsvg.tar -C qa-svg-androidsvg
+            EXPECTED="$(find app/src/main/res/raw -maxdepth 1 -type f -name '*_ta.svg' | wc -l)"
+            ACTUAL="$(find qa-svg-androidsvg -maxdepth 1 -type f -name '*.png' | wc -l)"
+            test "$ACTUAL" -eq "$EXPECTED"
+            echo "androidsvg_tamil_svg_expected=$EXPECTED" | tee androidsvg-emulator-status.txt
+            echo "androidsvg_tamil_svg_rendered=$ACTUAL" | tee -a androidsvg-emulator-status.txt
+            echo "androidsvg_emulator_render=PASS" | tee -a androidsvg-emulator-status.txt
+            if [ -n "${ENVSTUDIES_KEYSTORE_BASE64:-}" ] && \
+               [ -n "${ENVSTUDIES_KEYSTORE_PASSWORD:-}" ] && \
+               [ -n "${ENVSTUDIES_KEY_ALIAS:-}" ] && \
+               [ -n "${ENVSTUDIES_KEY_PASSWORD:-}" ]; then
+              KEYSTORE="$RUNNER_TEMP/environmental-studies-release.keystore"
+              printf '%s' "$ENVSTUDIES_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
+              ENVSTUDIES_KEYSTORE_PATH="$KEYSTORE" gradle --no-daemon :app:generateBaselineProfile \
+                -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+              echo "baseline_profile_device_generation=PASS" >> baseline-profile-status.txt
+            else
+              echo "baseline_profile_device_generation=SKIPPED_NO_PRODUCTION_SIGNING_SECRETS" >> baseline-profile-status.txt
+            fi
+
       - name: Inspect v2.4.5 package identity and offline contract
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
