@@ -28,10 +28,14 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.fetchSemanticsNodes
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onParent
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import edu.gascnagercoil.environmentalsciences.data.ContentRepository
@@ -63,16 +67,12 @@ class QuizDeviceQaTest {
         val expectedScore = if (first.answer == selectedOptionIndex) 1 else 0
 
         composeRule.onNodeWithText("Start learning").performClick()
-        composeRule.onNodeWithText("MCQs").performScrollTo().performClick()
+        scrollDownUntil("MCQs")
+        composeRule.onNodeWithText("MCQs").performClick()
 
         composeRule.onNodeWithText("Unit 1 · Exam Practice MCQs").assertIsDisplayed()
         composeRule.onNodeWithText(first.questionEn).assertExists()
-
-        composeRule
-            .onNodeWithText(first.options[selectedOptionIndex].en, useUnmergedTree = true)
-            .onParent()
-            .onParent()
-            .performClick()
+        composeRule.onNodeWithText(first.options[selectedOptionIndex].en).performClick()
 
         composeRule.activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         composeRule.waitUntil(timeoutMillis = 15_000) {
@@ -87,19 +87,42 @@ class QuizDeviceQaTest {
         }
         composeRule.onNodeWithText("Unit 1 · Exam Practice MCQs").assertExists()
 
-        composeRule.onNodeWithText("Check answers").performScrollTo().performClick()
-        composeRule.onNodeWithText(expectedEnglishFeedback).assertExists()
+        scrollDownUntil("Check answers", maxSwipes = 28)
+        composeRule.onNodeWithText("Check answers").performClick()
         composeRule.onNodeWithText("Score: $expectedScore / 10").assertExists()
 
-        composeRule.onNodeWithText("தமிழ்").performScrollTo().performClick()
+        scrollUpUntil("Unit 1 · Exam Practice MCQs", maxSwipes = 28)
+        composeRule.onNodeWithText(expectedEnglishFeedback).assertExists()
+
+        composeRule.onNodeWithText("தமிழ்").performClick()
         composeRule.onNodeWithText("அலகு 1 · தேர்வு பயிற்சி பல்தேர்வு வினாக்கள்").assertExists()
         composeRule.onNodeWithText(first.questionTa).assertExists()
         composeRule.onNodeWithText(expectedTamilFeedback).assertExists()
+
+        scrollDownUntil("மதிப்பெண்: $expectedScore / 10", maxSwipes = 28)
         composeRule.onNodeWithText("மதிப்பெண்: $expectedScore / 10").assertExists()
 
         composeRule.activity.onBackPressedDispatcher.onBackPressed()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("அலகு 1: ${unit.titleTa}").assertExists()
+    }
+
+    private fun scrollDownUntil(text: String, maxSwipes: Int = 12) {
+        repeat(maxSwipes) {
+            if (composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()) return
+            composeRule.onRoot().performTouchInput { swipeUp() }
+            composeRule.waitForIdle()
+        }
+        composeRule.onNodeWithText(text).assertExists()
+    }
+
+    private fun scrollUpUntil(text: String, maxSwipes: Int = 12) {
+        repeat(maxSwipes) {
+            if (composeRule.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()) return
+            composeRule.onRoot().performTouchInput { swipeDown() }
+            composeRule.waitForIdle()
+        }
+        composeRule.onNodeWithText(text).assertExists()
     }
 }
 ''', encoding='utf-8')
