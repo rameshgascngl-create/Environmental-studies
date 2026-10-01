@@ -56,7 +56,8 @@ jobs:
               "ci/audit_v240_b_architecture.py",
               "ci/apply_v240_b1_architecture.py",
               "ci/apply_v240_b2_state.py",
-              "ci/apply_v240_b3_compose_stability.py",\n              "ci/apply_v240_c1_png_decode.py",
+              "ci/apply_v240_b3_compose_stability.py",
+              "ci/apply_v240_c1_png_decode.py",
               "overlay/v2.4/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/LearningStateViewModel.kt",
           }
           assert files==expected, (files-expected, expected-files)
