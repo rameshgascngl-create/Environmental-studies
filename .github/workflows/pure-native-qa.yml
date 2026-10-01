@@ -71,6 +71,7 @@ jobs:
               "FACTS_TO_VERIFY.md",
               "overlay/v2.4/app/src/main/res/font/noto_sans_tamil.ttf",
               "overlay/v2.4/app/src/main/res/raw/noto_sans_tamil_ofl.txt",
+              "V244_ACADEMIC_CONTENT_QUIZ_AUDIT.md",
               "V244_QUIZ_BANK_ACADEMIC_AUDIT.md",
               "ci/v245quizparts/part00",
               "ci/v245quizparts/part01",
