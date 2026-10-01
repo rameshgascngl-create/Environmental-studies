@@ -110,100 +110,10 @@ for old, new in [
 ]:
     nav = nav.replace(old, new)
 
-# Convert any remaining direct route assignments in navigation controls.
+# Convert any remaining literal route assignments in navigation controls.
 nav = re.sub(
-    r'(?m)^(\\s*)route\\s*=\\s*(.+)
-assert "languageName =" not in "\n".join(
-    line for line in nav.splitlines()
-    if "val languageName" not in line
-)
-assert not re.search(r"(?m)^\s*route\s*=", nav)
-NAV.write_text(nav, encoding="utf-8")
-
-lesson = LESSON.read_text(encoding="utf-8")
-lesson = replace_once(
-    lesson,
-    '''    val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("learning_state", android.content.Context.MODE_PRIVATE) }
-    val scrollKey = "lesson_scroll_${unit.number}_${lesson.id}_${mode.name}"
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = prefs.getInt(scrollKey, 0).coerceAtLeast(0))''',
-    '''    val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("learning_state", android.content.Context.MODE_PRIVATE) }
-    val learningState: LearningStateViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = learningState.readingPosition(unit.number, lesson.id, mode)
-    )''',
-    "reading state initialisation",
-)
-lesson = replace_once(
-    lesson,
-    '''            val saved = prefs.getInt(scrollKey, 0).coerceAtLeast(0)
-            runCatching { listState.scrollToItem(saved) }''',
-    '''            val saved = learningState.readingPosition(unit.number, lesson.id, mode)
-            runCatching { listState.scrollToItem(saved) }''',
-    "reading state restore",
-)
-lesson = replace_once(
-    lesson,
-    '''        snapshotFlow { listState.firstVisibleItemIndex }.collect { index ->
-            if (!visualFocus) prefs.edit().putInt(scrollKey, index).apply()
-        }''',
-    '''        snapshotFlow { listState.firstVisibleItemIndex }.collect { index ->
-            if (!visualFocus) {
-                learningState.setReadingPosition(unit.number, lesson.id, mode, index)
-            }
-        }''',
-    "reading state persistence",
-)
-assert "scrollKey" not in lesson
-LESSON.write_text(lesson, encoding="utf-8")
-
-quiz = QUIZ.read_text(encoding="utf-8")
-quiz = replace_once(
-    quiz,
-    '''fun QuizScreen(unit: UnitContent, mode: LanguageMode, onMode: (LanguageMode) -> Unit) {
-    var encoded by rememberSaveable(unit.number) { mutableStateOf(List(unit.quiz.size) { -1 }.joinToString(",")) }
-    var checked by rememberSaveable(unit.number) { mutableStateOf(false) }''',
-    '''fun QuizScreen(unit: UnitContent, mode: LanguageMode, onMode: (LanguageMode) -> Unit) {
-    val learningState: LearningStateViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val encoded by learningState.quizAnswers(unit.number, unit.quiz.size).collectAsState()
-    val checked by learningState.quizChecked(unit.number).collectAsState()''',
-    "quiz state initialisation",
-)
-quiz = replace_once(
-    quiz,
-    '''    fun select(q: Int, option: Int) {
-        val next = answers.toMutableList()
-        next[q] = option
-        encoded = next.joinToString(",")
-        checked = false
-    }''',
-    '''    fun select(q: Int, option: Int) {
-        learningState.setQuizAnswer(
-            unitNumber = unit.number,
-            questionCount = unit.quiz.size,
-            questionIndex = q,
-            optionIndex = option,
-        )
-    }''',
-    "quiz answer mutation",
-)
-quiz = replace_once(
-    quiz,
-    'Button(onClick = { checked = true }, modifier = Modifier.fillMaxWidth()) {',
-    'Button(onClick = { learningState.setQuizChecked(unit.number, true) }, modifier = Modifier.fillMaxWidth()) {',
-    "quiz check state",
-)
-QUIZ.write_text(quiz, encoding="utf-8")
-
-assert 'rememberSaveable(unit.number)' not in quiz
-assert "learningState.quizAnswers" in quiz
-assert "learningState.readingPosition" in lesson
-assert "learningState.languageName.collectAsState()" in nav
-assert "learningState.route.collectAsState()" in nav
-print("B2 moved language, reading position and quiz state into SavedStateHandle-backed ViewModel state.")
-,
-    lambda match: f'{match.group(1)}learningState.setRoute({match.group(2)})',
+    r'(?m)\\broute\\s*=(?!=)\\s*"([^"]+)"',
+    lambda match: f'learningState.setRoute("{match.group(1)}")',
     nav,
 )
 
