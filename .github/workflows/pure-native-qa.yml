@@ -775,6 +775,8 @@ jobs:
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
+          tar -czf qa-artifact/v240-reconstructed-source.tar.gz \
+            app/src/main/java app/src/main/res app/build.gradle.kts app/proguard-rules.pro
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v240_task_a.json
           cp ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
 
