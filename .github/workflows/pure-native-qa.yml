@@ -1,4 +1,4 @@
-name: Environmental Studies v2.2.4 Tamil Naturalisation QA
+name: Environmental Studies v2.2.5 Lesson Navigation QA
 
 on:
   push:
@@ -28,32 +28,26 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify v2.2.4 branch scope
+      - name: Verify v2.2.5 branch scope
         shell: bash
         run: |
           set -euo pipefail
-          BASE=e66ae72ec765f7e8318108dcfdd5cdfbe71728a1
+          BASE=27e6035bbdb3611d7dfd6a07042e6e89ad1408ed
           test "$(git merge-base "$BASE" HEAD)" = "$BASE"
-          git diff --name-only "$BASE"..HEAD | tee v224-branch-files.txt
+          git diff --name-only "$BASE"..HEAD | tee v225-branch-files.txt
           python - <<'PY'
           import subprocess
-          files=subprocess.check_output(
-              ["git","diff","--name-only","e66ae72ec765f7e8318108dcfdd5cdfbe71728a1..HEAD"],
+          files=set(subprocess.check_output(
+              ["git","diff","--name-only","27e6035bbdb3611d7dfd6a07042e6e89ad1408ed..HEAD"],
               text=True
-          ).splitlines()
-          exact={
+          ).splitlines())
+          expected={
               ".github/workflows/pure-native-qa.yml",
-              "V224_PROVENANCE.md",
-              "V224_TAMIL_NATURALISATION_AUDIT.md",
-              "TAMIL_TERMINOLOGY_MASTER_V224.md",
+              "ci/apply_v225_navigation.py",
+              "V225_PROVENANCE.md",
+              "V225_NAVIGATION_UX_AUDIT.md",
           }
-          unexpected=[
-              p for p in files
-              if p not in exact and not p.startswith("ci/v224parts/")
-          ]
-          assert not unexpected, unexpected
-          parts=sorted(p for p in files if p.startswith("ci/v224parts/"))
-          assert parts==["ci/v224parts/part00","ci/v224parts/part01"], parts
+          assert files==expected, (files-expected, expected-files)
           PY
 
       - name: Verify native source archive
@@ -345,21 +339,78 @@ jobs:
           assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
           PY
 
-      - name: Diagnostic lesson navigation source
+      - name: Apply and audit v2.2.5 lesson navigation UX
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
-          APP=app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt
-          echo '===== ROUTE/NAVIGATION ====='
-          grep -n -E 'route|navigate|back|BackHandler|LessonScreen|Pdf|Print|share|Share' "$APP" || true
-          echo '===== APP 1-180 ====='
-          sed -n '1,180p' "$APP"
-          echo '===== LESSON AREA ====='
-          LINE=$(grep -n 'private fun LessonScreen' "$APP" | head -n1 | cut -d: -f1)
-          START=$((LINE-20))
-          END=$((LINE+180))
-          sed -n "${START},${END}p" "$APP"
+          python -m py_compile ../../ci/apply_v225_navigation.py
+
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib,json
+          snap={}
+          for q in Path(".").rglob("*"):
+              if q.is_file() and "/build/" not in str(q):
+                  snap[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
+          Path("/tmp/v224_pre_v225.json").write_text(json.dumps(snap,sort_keys=True))
+          PY
+
+          python ../../ci/apply_v225_navigation.py
+
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+
+          audit=json.loads(Path("V225_NAVIGATION_UX_AUDIT.json").read_text())
+          assert audit["versionName"]=="2.2.5"
+          assert audit["versionCode"]==20205
+          assert audit["scope"]=="lesson navigation UX only"
+          assert audit["book_content_sha256"]=="1bf866f457cdb7c2590469b32d692f56b5000a58ff76eba1604b0ad158962f40"
+          assert audit["book_content_unchanged"] is True
+          assert audit["english_payload_unchanged"] is True
+          assert audit["tamil_payload_unchanged"] is True
+          assert audit["figure_routing_unchanged"] is True
+          assert audit["direct_home_from_lesson"] is True
+          assert audit["direct_unit_contents_from_lesson"] is True
+          assert audit["persistent_previous_next_navigation"] is True
+          assert audit["print_pdf_moved_to_lesson_more_menu"] is True
+          assert audit["system_back_from_lesson_returns_current_unit"] is True
+          assert all(audit["checks"].values()), audit["checks"]
+
+          book=Path("app/src/main/res/raw/book_content.json")
+          assert hashlib.sha256(book.read_bytes()).hexdigest()=="1bf866f457cdb7c2590469b32d692f56b5000a58ff76eba1604b0ad158962f40"
+
+          gradle=Path("app/build.gradle.kts").read_text()
+          assert 'versionCode = 20205' in gradle
+          assert 'versionName = "2.2.5"' in gradle
+
+          app=Path("app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt").read_text()
+          assert 'showNavigationBar = false' in app
+          assert 'showNavigationBar = true' in app
+          assert app.count('NavigationBarItem(') >= 4
+          assert 'onClick = { navigate("unit:${unit.number}") }' in app
+          assert 'onClick = { navigate("home") }' in app
+          assert 'PDF ஆகச் சேமிக்க' in app
+          assert 'அச்சிடுக' in app
+
+          pre=json.loads(Path("/tmp/v224_pre_v225.json").read_text())
+          post={}
+          for q in Path(".").rglob("*"):
+              if q.is_file() and "/build/" not in str(q):
+                  post[str(q)]=hashlib.sha256(q.read_bytes()).hexdigest()
+          changed=sorted(p for p in set(pre)|set(post) if pre.get(p)!=post.get(p))
+          Path("V225_CHANGED_FILE_INVENTORY.txt").write_text("\n".join(changed)+"\n")
+          expected={
+              "V225_NAVIGATION_UX_AUDIT.json",
+              "V225_NAVIGATION_UX_CHANGELOG.md",
+              "app/build.gradle.kts",
+              "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/App.kt",
+          }
+          print("V225_CHANGED_FILES",len(changed))
+          print("\n".join(changed))
+          assert set(changed)==expected, (set(changed)-expected, expected-set(changed))
+          PY
 
       - name: Verify public Privacy Policy URL
         shell: bash
@@ -398,8 +449,8 @@ jobs:
           "$AAPT" dump badging "$APK" | tee qa-badging.txt
           "$AAPT" dump permissions "$APK" | tee qa-permissions.txt
           grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging.txt
-          grep -q "versionCode='20204'" qa-badging.txt
-          grep -q "versionName='2.2.4-debug'" qa-badging.txt
+          grep -q "versionCode='20205'" qa-badging.txt
+          grep -q "versionName='2.2.5-debug'" qa-badging.txt
           ! grep -q 'android.permission.INTERNET' qa-permissions.txt
           if zipinfo -1 "$APK" | grep -Ei '^assets/.*\.(html|js|css)$'; then
             echo "Unexpected web payload" >&2
@@ -411,8 +462,8 @@ jobs:
             echo "webview=absent"
             echo "internet_permission=absent"
             echo "application_id=edu.gascnagercoil.environmentalsciences.debug"
-            echo "version_name=2.2.4-debug"
-            echo "version_code=20204"
+            echo "version_name=2.2.5-debug"
+            echo "version_code=20205"
             echo "units=9"
             echo "lessons=46"
             echo "book_content_sha256=$V224_BOOK_SHA256"
@@ -420,23 +471,30 @@ jobs:
             echo "tamil_lessons_reviewed=46"
             echo "tamil_lesson_bodies_changed=19"
             echo "tamil_review_prompts_rewritten=46"
+            echo "lesson_home_one_tap=true"
+            echo "lesson_unit_contents_one_tap=true"
+            echo "lesson_previous_next_persistent=true"
+            echo "lesson_back_targets_current_unit=true"
+            echo "print_pdf_secondary_actions=true"
             echo "APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')"
           } | tee qa-evidence.txt
 
-      - name: Prepare v2.2.4 device-QA artifact
+      - name: Prepare v2.2.5 navigation device-QA artifact
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p qa-artifact
           APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$APK" qa-artifact/Environmental-Studies-v2.2.4-TAMIL-NATURALISATION-DEVICE-QA.apk
+          cp "$APK" qa-artifact/Environmental-Studies-v2.2.5-NAVIGATION-DEVICE-QA.apk
           cp qa-badging.txt qa-permissions.txt qa-evidence.txt qa-artifact/
+          cp V225_NAVIGATION_UX_AUDIT.json V225_NAVIGATION_UX_CHANGELOG.md V225_CHANGED_FILE_INVENTORY.txt qa-artifact/
+          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v224_FROZEN.json
           cp V224_TAMIL_NATURALISATION_AUDIT.json V224_TAMIL_NATURALISATION_CHANGELOG.md V224_CHANGED_FILE_INVENTORY.txt qa-artifact/
-          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v224.json
           cp V223_TAMIL_COHERENCE_AUDIT.json V223_TAMIL_COHERENCE_CHANGELOG.md V223_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp V222_TAMIL_COLLEGE_AUDIT.json V222_TAMIL_EDITORIAL_CHANGELOG.md V222_CHANGED_FILE_INVENTORY.txt qa-artifact/
           cp V221_STATIC_AUDIT.json V221_PARITY_REGISTER.md V221_SCI_VIS_REGISTER.md V221_EDITORIAL_CHANGELOG.md qa-artifact/
+          cp ../../V225_PROVENANCE.md ../../V225_NAVIGATION_UX_AUDIT.md qa-artifact/
           cp ../../V224_PROVENANCE.md ../../V224_TAMIL_NATURALISATION_AUDIT.md ../../TAMIL_TERMINOLOGY_MASTER_V224.md qa-artifact/
           cp ../../V223_PROVENANCE.md ../../V223_TAMIL_COHERENCE_AUDIT.md qa-artifact/
           cp ../../V222_PROVENANCE.md ../../TAMIL_TERMINOLOGY_MASTER_V222.md ../../V222_TAMIL_COLLEGE_EDITORIAL_AUDIT.md qa-artifact/
@@ -444,6 +502,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.2.4-TAMIL-NATURALISATION-DEVICE-QA
+          name: Environmental-Studies-v2.2.5-NAVIGATION-DEVICE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
