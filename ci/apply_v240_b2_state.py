@@ -51,13 +51,6 @@ nav = replace_once(
     'val languageName by learningState.languageName.collectAsState()',
     "language state",
 )
-
-nav = re.sub(
-    r'''\n    LaunchedEffect\(route\) \{\n        if \(route != "search"\) prefs\.edit\(\)\.putString\("last_route", route\)\.apply\(\)\n    \}\n    LaunchedEffect\(languageName\) \{\n        prefs\.edit\(\)\.putString\("language", languageName\)\.apply\(\)\n    \}\n''',
-    "\n",
-    nav,
-    count=1,
-)
 nav = replace_once(
     nav,
     '''    val navigate: (String) -> Unit = { destination ->
@@ -100,21 +93,22 @@ nav = replace_once(
     }''',
     "back state",
 )
-
-for old, new in [
-    ('{ route = "home" }', '{ navigate("home") }'),
-    ('{ route = "units" }', '{ navigate("units") }'),
-    ('{ route = "tools" }', '{ navigate("tools") }'),
-    ('{ route = "more" }', '{ navigate("more") }'),
-    ('{ languageName = it.name }', '{ learningState.setLanguage(it.name) }'),
-]:
-    nav = nav.replace(old, new)
-
-assert "languageName =" not in "\n".join(
-    line for line in nav.splitlines()
-    if "val languageName" not in line
+for destination in ("home", "units", "tools", "more"):
+    nav = nav.replace(
+        f'{{ route = "{destination}" }}',
+        f'{{ learningState.setRoute("{destination}") }}',
+    )
+nav = nav.replace(
+    '{ languageName = it.name }',
+    '{ learningState.setLanguage(it.name) }',
 )
-assert not re.search(r"(?m)^\s*route\s*=(?!=)", nav)
+nav = re.sub(
+    r'(?m)^([ \t]*)route\s*=(?!=)\s*([^\n]+)$',
+    lambda match: f'{match.group(1)}learningState.setRoute({match.group(2)})',
+    nav,
+)
+remaining_route_assignments = re.findall(r"(?m)^\s*route\s*=(?!=).*$", nav)
+assert not remaining_route_assignments, remaining_route_assignments
 NAV.write_text(nav, encoding="utf-8")
 
 lesson = LESSON.read_text(encoding="utf-8")
