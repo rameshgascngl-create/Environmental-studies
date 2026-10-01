@@ -59,6 +59,7 @@ jobs:
               "ci/apply_v240_b3_compose_stability.py",
               "ci/apply_v240_c1_png_decode.py",
               "ci/apply_v240_c3_tamil_font.py",
+              "ci/apply_v240_c4_accessibility.py",
               "FACTS_TO_VERIFY.md",
               "overlay/v2.4/app/src/main/res/font/noto_sans_tamil.ttf",
               "overlay/v2.4/app/src/main/res/raw/noto_sans_tamil_ofl.txt",
@@ -684,6 +685,32 @@ jobs:
           assert audit["licence_bundled"] is True
           PY
 
+      - name: Apply Task C4 accessibility semantics
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python ../../ci/apply_v240_c4_accessibility.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          audit=json.loads(Path("V240_C4_ACCESSIBILITY_AUDIT.json").read_text())
+          assert audit["actual_figure_blocks"]==91
+          assert audit["alt_fields_added"]==91
+          assert audit["empty_alt_count"]==0
+          assert audit["existing_book_fields_unchanged_except_alt"] is True
+          assert audit["backwards_compatible_optional_default"] is True
+          assert audit["png_uses_alt"] is True
+          assert audit["svg_uses_alt"] is True
+          assert audit["quiz_selectable_radio_rows"] is True
+          assert audit["quiz_min_touch_target"] is True
+          assert audit["slider_semantics_count"]==7
+          assert audit["wastewater_selectable_row"] is True
+          assert audit["wastewater_min_touch_target"] is True
+          assert audit["talkback_physically_verified"] is False
+          assert audit["font_scaling_200_percent_physically_verified"] is False
+          PY
+
       - name: Verify public Privacy Policy URL
         shell: bash
         run: |
@@ -825,6 +852,7 @@ jobs:
           cp V240_B_ARCHITECTURE_FINDINGS.json qa-artifact/
           cp V240_C1_IMAGE_DECODE_AUDIT.json qa-artifact/
           cp V240_C3_TAMIL_FONT_AUDIT.json qa-artifact/
+          cp V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
           cp ../../FACTS_TO_VERIFY.md qa-artifact/
           cp V240_B1_ARCHITECTURE_REFACTOR.json V240_B_TASK_AUDIT.json qa-artifact/
           if [ -d app/build/compose_compiler ]; then
