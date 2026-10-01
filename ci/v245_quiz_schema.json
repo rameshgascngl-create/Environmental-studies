@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Environmental Studies v2.4.5 quiz content",
+  "type": "object",
+  "required": ["schemaVersion", "nativeVersion", "units"],
+  "properties": {
+    "schemaVersion": {"const": 2},
+    "nativeVersion": {"const": "2.4.5"},
+    "units": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "required": ["quiz"],
+        "properties": {
+          "quiz": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["questionEn", "questionTa", "options", "answer", "explanationEn", "explanationTa"],
+              "properties": {
+                "questionEn": {"type": "string", "minLength": 1},
+                "questionTa": {"type": "string", "minLength": 1},
+                "options": {
+                  "type": "array",
+                  "minItems": 4,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "required": ["en", "ta"],
+                    "properties": {
+                      "en": {"type": "string", "minLength": 1},
+                      "ta": {"type": "string", "minLength": 1}
+                    },
+                    "additionalProperties": true
+                  }
+                },
+                "answer": {"type": "integer", "minimum": 0, "maximum": 3},
+                "explanationEn": {"type": "string", "minLength": 1},
+                "explanationTa": {"type": "string", "minLength": 1}
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
