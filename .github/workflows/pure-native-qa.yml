@@ -4,7 +4,17 @@ on:
   push:
     branches:
       - release/v2.4.5-rc-20261001
+      - audit/v245-releaseqa-dex-20261002
   workflow_dispatch:
+    inputs:
+      run_scope:
+        description: Select full RC pipeline or releaseQa dex/instrumentation audit only
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - releaseqa-dex-audit
 
 permissions:
   contents: read
@@ -17,6 +27,7 @@ jobs:
       SOURCE_ZIP: Environmental-Studies-v2.0.0-native-source-ENHANCED.zip
       SOURCE_SHA256: db7d221b1ab2522b36120d39dba7b2d22155e7f98992b672c5035469d6e02c54
       PRIVACY_URL: https://rameshgascngl-create.github.io/Zoology-and-Life-Sciences-Digital-Learning-Resources/docs/environmental-studies/privacy-policy.html
+      RUN_SCOPE: ${{ github.ref_name == 'audit/v245-releaseqa-dex-20261002' && 'releaseqa-dex-audit' || (github.event_name == 'workflow_dispatch' && inputs.run_scope || 'full') }}
       V221_BOOK_SHA256: 766910513a31c5ea9ccb9514237f8664c31076c92d3fd79bb1005643133da599
       V222_BOOK_SHA256: 7781bd031ef43fdab16e44c024e87584f79550da5e86d0a88b7f0913f510dd4e
       V223_BOOK_SHA256: 1f3b63f25719a7b495528770db4853f01461ebbd4b2b75136235d31ce6ddd211
@@ -92,6 +103,7 @@ jobs:
               "ci/verify_v245_release_resource_integrity.py",
               "ci/apply_v245_privacy_url_lint.py",
               "ci/apply_v245_release_qa_variant.py",
+              "ci/audit_releaseqa_dex_refs.py",
               "ci/audit_v245_release_parity.py",
               "ci/audit_v245_topic_parity.py",
               "ci/parity-allowlist.json",
@@ -1444,7 +1456,182 @@ jobs:
         with:
           gradle-version: '8.13'
 
+
+      - name: Compute releaseQa dex closure and exact QA-only keep rules
+        if: env.RUN_SCOPE == 'releaseqa-dex-audit'
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ENVSTUDIES_KEYSTORE_PATH=""
+          export ENVSTUDIES_KEYSTORE_PASSWORD=""
+          export ENVSTUDIES_KEY_ALIAS=""
+          export ENVSTUDIES_KEY_PASSWORD=""
+
+          OUT=releaseqa-dex-audit
+          QA_RULE=app/proguard-releaseqa-androidtest.pro
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          test -f "$QA_RULE"
+          cp "$QA_RULE" "$OUT/keep-rules-before.pro"
+
+          production_snapshot() {
+            label="$1"
+            gradle --no-daemon clean :app:packageRelease \
+              -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
+              -PALLOW_UNSIGNED_RELEASE_QA=true \
+              --stacktrace
+            apk="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+            test -f "$apk"
+            python - "$apk" "$OUT/production-$label-dex.sha256" <<'PYDEX'
+          import hashlib
+          import re
+          import sys
+          import zipfile
+          apk, out = sys.argv[1:3]
+          with zipfile.ZipFile(apk) as z:
+              names=[n for n in z.namelist() if re.fullmatch(r"classes(?:[0-9]+)?[.]dex", n)]
+              names.sort(key=lambda n: 1 if n=="classes.dex" else int(n[7:-4]))
+              assert names, "no production classes*.dex"
+              h=hashlib.sha256()
+              for n in names:
+                  h.update(z.read(n))
+          open(out,"w",encoding="utf-8").write(h.hexdigest()+"\n")
+          print("production_"+out.split("/")[-1].replace(".sha256","")+"_sha256="+h.hexdigest())
+          PYDEX
+            test -f app/build/outputs/mapping/release/configuration.txt
+            cp app/build/outputs/mapping/release/configuration.txt "$OUT/production-$label-r8-configuration.txt"
+            sha256sum "$OUT/production-$label-r8-configuration.txt" | awk '{print $1}' > "$OUT/production-$label-r8-configuration.sha256"
+          }
+
+          production_snapshot before
+
+          gradle --no-daemon :app:assembleReleaseQa :app:assembleReleaseQaAndroidTest \
+            -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
+            --stacktrace
+          APP_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          TEST_APK="$(find app/build/outputs/apk/androidTest/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -f "$APP_APK"
+          test -f "$TEST_APK"
+
+          python ../../ci/audit_releaseqa_dex_refs.py \
+            --test-apk "$TEST_APK" \
+            --app-apk "$APP_APK" \
+            --json-out "$OUT/releaseqa-dex-audit-before.json" \
+            --missing-out "$OUT/classes-absent-from-minified-app-before.txt" \
+            --keep-out "$OUT/exact-releaseqa-androidtest.pro"
+
+          cp "$OUT/exact-releaseqa-androidtest.pro" "$QA_RULE"
+          cp "$QA_RULE" "$OUT/keep-rules-after.pro"
+          ! grep -Eq 'kotlin[.]\*\*|kotlinx[.]\*\*|androidx[.]test[.]\*\*' "$QA_RULE"
+
+          production_snapshot after
+          cmp "$OUT/production-before-dex.sha256" "$OUT/production-after-dex.sha256"
+          cmp "$OUT/production-before-r8-configuration.txt" "$OUT/production-after-r8-configuration.txt"
+
+          {
+            echo "production_release_dex_identity=PASS"
+            echo "production_release_merged_r8_configuration_identity=PASS"
+            echo "before_production_release_dex_sha256=$(cat "$OUT/production-before-dex.sha256")"
+            echo "after_production_release_dex_sha256=$(cat "$OUT/production-after-dex.sha256")"
+            echo "before_production_merged_keep_rules_sha256=$(cat "$OUT/production-before-r8-configuration.sha256")"
+            echo "after_production_merged_keep_rules_sha256=$(cat "$OUT/production-after-r8-configuration.sha256")"
+            echo "qa_keep_rule_scope=releaseQa-AndroidTest-only"
+          } | tee "$OUT/production-isolation-proof.txt"
+
+          gradle --no-daemon :app:assembleReleaseQa :app:assembleReleaseQaAndroidTest \
+            -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
+            --stacktrace
+          APP_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          TEST_APK="$(find app/build/outputs/apk/androidTest/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          python ../../ci/audit_releaseqa_dex_refs.py \
+            --test-apk "$TEST_APK" \
+            --app-apk "$APP_APK" \
+            --json-out "$OUT/releaseqa-dex-audit-after.json" \
+            --missing-out "$OUT/classes-absent-from-minified-app-after.txt" \
+            --keep-out "$OUT/exact-releaseqa-androidtest-after.pro"
+
+          python - "$OUT/releaseqa-dex-audit-after.json" <<'PYVERIFY'
+          import json, sys
+          p=sys.argv[1]
+          data=json.load(open(p,encoding="utf-8"))
+          unresolved=data["unresolvedInCombinedRuntime"]
+          if unresolved:
+              print("UNRESOLVED_FILTERED_CLASS_SET_AFTER_EXACT_RULES")
+              print("\n".join(unresolved))
+              raise SystemExit(12)
+          print("UNRESOLVED_FILTERED_CLASS_SET_AFTER_EXACT_RULES=EMPTY")
+          PYVERIFY
+
+          cp "$APP_APK" "$OUT/releaseQa-app.apk"
+          cp "$TEST_APK" "$OUT/releaseQa-androidTest.apk"
+
+      - name: Enable KVM for releaseQa dex audit
+        if: env.RUN_SCOPE == 'releaseqa-dex-audit'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+
+      - name: Prepare releaseQa dex audit instrumentation
+        if: env.RUN_SCOPE == 'releaseqa-dex-audit'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/releaseqa-dex-audit-emulator.sh" <<'BASH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/native-build/Environmental-Studies-v2.0.0-native"
+          OUT=releaseqa-dex-audit
+          APP_APK="$OUT/releaseQa-app.apk"
+          TEST_APK="$OUT/releaseQa-androidTest.apk"
+          test -f "$APP_APK"
+          test -f "$TEST_APK"
+          PACKAGE=edu.gascnagercoil.environmentalsciences
+          adb install -r "$APP_APK"
+          adb install -r -t "$TEST_APK"
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' | grep "(target=$PACKAGE)" | sed -n 's/^instrumentation:\([^ ]*\) .*/\1/p' | head -n1)"
+          test -n "$INSTRUMENTATION"
+          set +e
+          adb shell am instrument -w \
+            -e class edu.gascnagercoil.environmentalsciences.qa.SvgAndroidSvgScreenshotTest \
+            "$INSTRUMENTATION" | tee "$OUT/instrumentation.txt"
+          rc=${PIPESTATUS[0]}
+          set -e
+          if grep -Eq 'NoClassDefFoundError|ClassNotFoundException' "$OUT/instrumentation.txt"; then
+            echo "FURTHER_MISSING_CLASS_RUNTIME_FAILURE"
+            cat "$OUT/classes-absent-from-minified-app-after.txt"
+            exit 13
+          fi
+          test "$rc" -eq 0
+          grep -Eq '^OK \([0-9]+ test' "$OUT/instrumentation.txt"
+          echo "releaseqa_svg_instrumentation=PASS" | tee "$OUT/instrumentation-status.txt"
+          BASH
+          chmod 700 "$RUNNER_TEMP/releaseqa-dex-audit-emulator.sh"
+
+      - name: Run releaseQa dex audit instrumentation only
+        if: env.RUN_SCOPE == 'releaseqa-dex-audit'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis_playstore
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash "$RUNNER_TEMP/releaseqa-dex-audit-emulator.sh"
+
+      - name: Upload releaseQa dex audit evidence
+        if: env.RUN_SCOPE == 'releaseqa-dex-audit'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-releaseQa-DEX-AUDIT
+          path: native-build/Environmental-Studies-v2.0.0-native/releaseqa-dex-audit/
+          if-no-files-found: error
+
       - name: Prove releaseQa AndroidTest rules are isolated from production release
+        if: env.RUN_SCOPE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1516,6 +1703,7 @@ jobs:
           } | tee v245-production-isolation-proof.txt
 
       - name: Verify v2.4.5 baseline-profile producer compiles
+        if: env.RUN_SCOPE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1527,6 +1715,7 @@ jobs:
           echo "baseline_profile_device_generation=requires_connected_device_and_installable_release" | tee -a baseline-profile-status.txt
 
       - name: Build v2.4.5 debug QA and exercise minified release pipeline
+        if: env.RUN_SCOPE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1563,6 +1752,7 @@ jobs:
           } | tee v245-size-dex-report.txt
 
       - name: release-resource-integrity
+        if: env.RUN_SCOPE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1621,6 +1811,7 @@ jobs:
           PYFIGREL
 
       - name: release-parity-integrity
+        if: env.RUN_SCOPE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1635,6 +1826,7 @@ jobs:
             --aapt "$AAPT"
 
       - name: Build signed release APK and AAB when original signing secrets are present
+        if: env.RUN_SCOPE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1661,6 +1853,7 @@ jobs:
           fi
 
       - name: Install PDF QA utilities
+        if: env.RUN_SCOPE == 'full'
         shell: bash
         run: |
           set -euo pipefail
@@ -1670,6 +1863,7 @@ jobs:
           command -v pdfinfo
 
       - name: Enable KVM for Android emulator
+        if: env.RUN_SCOPE == 'full'
         shell: bash
         run: |
           set -euo pipefail
@@ -1678,6 +1872,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm || true
 
       - name: Prepare AndroidSVG emulator QA script
+        if: env.RUN_SCOPE == 'full'
         shell: bash
         run: |
           set -euo pipefail
@@ -1923,6 +2118,7 @@ jobs:
           chmod 700 "$RUNNER_TEMP/v245-androidsvg-emulator.sh"
 
       - name: Render every Tamil SVG through AndroidSVG on emulator
+        if: env.RUN_SCOPE == 'full'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -1933,6 +2129,7 @@ jobs:
           script: bash "$RUNNER_TEMP/v245-androidsvg-emulator.sh"
 
       - name: Verify engine-present bilingual TTS result
+        if: env.RUN_SCOPE == 'full'
         id: tts_engine
         continue-on-error: true
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1947,6 +2144,7 @@ jobs:
           grep -Fx 'tamil_tts=PASS' tts-smoke-status.txt
 
       - name: Upload releaseQa device evidence
+        if: env.RUN_SCOPE == 'full'
         uses: actions/upload-artifact@v4
         with:
           name: Environmental-Studies-v2.4.5-releaseQa-DEVICE-EVIDENCE
@@ -1967,6 +2165,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload AndroidSVG Tamil render evidence
+        if: env.RUN_SCOPE == 'full'
         uses: actions/upload-artifact@v4
         with:
           name: Environmental-Studies-v2.4.5-Tamil-SVG-Renders
@@ -1978,6 +2177,7 @@ jobs:
           if-no-files-found: error
 
       - name: Inspect v2.4.5 package identity and offline contract
+        if: env.RUN_SCOPE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -2078,6 +2278,7 @@ jobs:
           } | tee qa-evidence-v245.txt
 
       - name: Prepare v2.4.5 QA artefact
+        if: env.RUN_SCOPE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -2145,13 +2346,14 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@v4
+        if: env.RUN_SCOPE == 'full'
         with:
           name: Environmental-Studies-v2.4.5-RELEASE-CANDIDATE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
 
       - name: Enforce final release-candidate gates
-        if: always()
+        if: ${{ always() && env.RUN_SCOPE == 'full' }}
         shell: bash
         run: |
           set -euo pipefail
