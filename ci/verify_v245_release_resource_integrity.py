@@ -59,6 +59,8 @@ with zipfile.ZipFile(aab) as z:
     aab_book_path = "base/res/raw/book_content.json"
     assert aab_book_path in aab_entries
     aab_book_bytes = z.read(aab_book_path)
+    assert "base/resources.pb" in aab_entries
+    aab_resources_pb = z.read("base/resources.pb")
 
 assert apk_book_bytes == aab_book_bytes, "APK/AAB packaged book_content.json differs"
 data = json.loads(aab_book_bytes.decode("utf-8"))
@@ -121,10 +123,18 @@ aab_png_files = sum(
 )
 aab_svg_files = sum(f"base/res/raw/{name}.svg" in aab_entries for name in svg)
 
+# Verify resource entry names inside the AAB base module resource table,
+# not merely the presence of files in base/res.
+aab_missing_table = sorted(name for name in refs if name.encode("utf-8") not in aab_resources_pb)
+aab_png_table = sum(name.encode("utf-8") in aab_resources_pb for name in png)
+aab_svg_table = sum(name.encode("utf-8") in aab_resources_pb for name in svg)
+
 assert not apk_missing_table, apk_missing_table
 assert not apk_missing_file, apk_missing_file
+assert not aab_missing_table, aab_missing_table
 assert not aab_missing_file, aab_missing_file
 assert (apk_png_resolved, apk_svg_resolved) == (31, 65)
+assert (aab_png_table, aab_svg_table) == (31, 65)
 assert (aab_png_files, aab_svg_files) == (31, 65)
 assert "resources.arsc" in apk_entries
 assert "base/resources.pb" in aab_entries
@@ -171,6 +181,12 @@ report = {
         "bytes": aab.stat().st_size,
         "sha256": sha256_file(aab),
         "baseResourcesPbPresent": True,
+        "baseResourcesPbResolved": {
+            "total": aab_png_table + aab_svg_table,
+            "png": aab_png_table,
+            "svg": aab_svg_table,
+        },
+        "missingFromBaseResourcesPb": aab_missing_table,
         "baseModuleFileEntriesPresent": {
             "total": aab_png_files + aab_svg_files,
             "png": aab_png_files,
