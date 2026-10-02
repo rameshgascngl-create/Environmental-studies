@@ -81,6 +81,7 @@ jobs:
               "ci/apply_v245_lesson_figure_ui_fix.py",
               "ci/apply_v245_item1_english_figures.py",
               "ci/apply_v245_item2_remove_orphan_figures.py",
+              "ci/apply_v245_item3_approved_tamil.py",
               "ci/audit_v245_item3_tamil_parity.py",
               "ci/apply_v245_item4_quiz_punctuation.py",
               "ci/apply_v245_item5_figure_robustness.py",
@@ -1328,9 +1329,16 @@ jobs:
           python -m py_compile ../../ci/apply_v245_item2_remove_orphan_figures.py
           python ../../ci/apply_v245_item2_remove_orphan_figures.py
 
-      - name: Audit item 3 Tamil lesson length anomalies
+      - name: Apply approved Item 3 Tamil content correction
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/apply_v245_item3_approved_tamil.py
+          python ../../ci/apply_v245_item3_approved_tamil.py
+
+      - name: Audit item 3 Tamil content correction
         id: item3_content
-        continue-on-error: true
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1339,18 +1347,12 @@ jobs:
           python ../../ci/audit_v245_item3_tamil_parity.py
           python - <<'PY'
           import json
-          import sys
           from pathlib import Path
-
           audit=json.loads(Path("V245_ITEM3_TAMIL_PARITY_AUDIT.json").read_text(encoding="utf-8"))
-          blockers=[]
-          if audit["u9l1"].get("duplication_detected"):
-              blockers.append("u9l1 Tamil duplication")
-          if audit["u1l4"].get("omission_detected"):
-              blockers.append("u1l4 Tamil omission")
-          if blockers:
-              print("ITEM 3 OPEN — FINAL BLOCKED: " + "; ".join(blockers), file=sys.stderr)
-              sys.exit(10)
+          assert audit["item3_status"] == "CLOSED", audit
+          assert audit["u9l1"]["duplication_detected"] is False, audit["u9l1"]
+          assert audit["u1l4"]["omission_detected"] is False, audit["u1l4"]
+          print("ITEM 3 CLOSED")
           PY
 
       - name: Apply item 4 quiz explanation punctuation
