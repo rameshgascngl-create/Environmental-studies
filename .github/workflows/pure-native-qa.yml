@@ -1323,13 +1323,45 @@ jobs:
           rm -rf qa-svg-androidsvg
           mkdir -p qa-svg-androidsvg
 
-          adb shell run-as "$PACKAGE" sh -c 'test -d files/svg-androidsvg'
-          REMOTE_FILES="$(adb shell run-as "$PACKAGE" sh -c 'ls files/svg-androidsvg/*.png' | tr -d '\r')"
+          # The screenshot harness can write via either targetContext or the
+          # instrumentation context. Detect the actual owner instead of
+          # assuming the target package owns files/svg-androidsvg.
+          TEST_PACKAGE="${INSTRUMENTATION%%/*}"
+          echo "androidsvg_target_package=$PACKAGE"
+          echo "androidsvg_test_package=$TEST_PACKAGE"
+
+          RENDER_PACKAGE=""
+          for CANDIDATE in "$PACKAGE" "$TEST_PACKAGE"; do
+            [ -n "$CANDIDATE" ] || continue
+            echo "Checking AndroidSVG render output in $CANDIDATE"
+            if adb shell run-as "$CANDIDATE" sh -c 'test -d files/svg-androidsvg'; then
+              COUNT="$(adb shell run-as "$CANDIDATE" sh -c 'find files/svg-androidsvg -maxdepth 1 -type f -name "*.png" | wc -l' | tr -d '\r ')"
+              echo "androidsvg_candidate_png_count=$COUNT package=$CANDIDATE"
+              if [ "${COUNT:-0}" -gt 0 ]; then
+                RENDER_PACKAGE="$CANDIDATE"
+                break
+              fi
+            fi
+          done
+
+          if [ -z "$RENDER_PACKAGE" ]; then
+            echo "AndroidSVG render directory was not found in either app-private package." >&2
+            adb shell pm list packages | tr -d '\r' | grep 'environmentalsciences' || true
+            for CANDIDATE in "$PACKAGE" "$TEST_PACKAGE"; do
+              [ -n "$CANDIDATE" ] || continue
+              echo "Private-file diagnostic for $CANDIDATE" >&2
+              adb shell run-as "$CANDIDATE" sh -c 'find files -maxdepth 3 -type f 2>/dev/null | head -100' || true
+            done
+            exit 11
+          fi
+
+          echo "androidsvg_render_package=$RENDER_PACKAGE" | tee androidsvg-render-package.txt
+          REMOTE_FILES="$(adb shell run-as "$RENDER_PACKAGE" sh -c 'find files/svg-androidsvg -maxdepth 1 -type f -name "*.png" | sort' | tr -d '\r')"
           test -n "$REMOTE_FILES"
           while IFS= read -r REMOTE; do
             [ -n "$REMOTE" ] || continue
             NAME="$(basename "$REMOTE")"
-            adb exec-out run-as "$PACKAGE" cat "$REMOTE" > "qa-svg-androidsvg/$NAME"
+            adb exec-out run-as "$RENDER_PACKAGE" cat "$REMOTE" > "qa-svg-androidsvg/$NAME"
             test -s "qa-svg-androidsvg/$NAME"
           done <<< "$REMOTE_FILES"
 
@@ -1374,6 +1406,17 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: bash "$RUNNER_TEMP/v245-androidsvg-emulator.sh"
+
+      - name: Upload AndroidSVG Tamil render evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-Tamil-SVG-Renders
+          path: |
+            native-build/Environmental-Studies-v2.0.0-native/qa-svg-androidsvg/
+            native-build/Environmental-Studies-v2.0.0-native/androidsvg-emulator-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/androidsvg-render-package.txt
+            native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
+          if-no-files-found: error
 
       - name: Inspect v2.4.5 package identity and offline contract
         working-directory: native-build/Environmental-Studies-v2.0.0-native
