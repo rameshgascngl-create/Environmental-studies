@@ -1450,11 +1450,23 @@ jobs:
         run: |
           set -euo pipefail
           QA_RULE="app/proguard-releaseqa-androidtest.pro"
+          APP_GRADLE="app/build.gradle.kts"
           test -f "$QA_RULE"
+          test -f "$APP_GRADLE"
           cp "$QA_RULE" "$RUNNER_TEMP/releaseqa-rule-after.pro"
+          cp "$APP_GRADLE" "$RUNNER_TEMP/app-build-after.gradle.kts"
 
-          # Recreate the immediately preceding QA-only rule set, before the
-          # Kotlin Lazy keep correction, without touching production rules.
+          # Recreate the immediately preceding QA-only state: no explicit
+          # AndroidTest Kotlin stdlib and no Kotlin Lazy keep rules. Production
+          # configuration itself is never edited.
+          python - <<'PYQA'
+          from pathlib import Path
+          p=Path("app/build.gradle.kts")
+          s=p.read_text()
+          line='    androidTestImplementation(kotlin("stdlib"))\n'
+          assert s.count(line) == 1, "QA-only Kotlin stdlib dependency missing"
+          p.write_text(s.replace(line, "", 1))
+          PYQA
           cat > "$QA_RULE" <<'EOF'
           # QA-only AndroidTest R8 rule.
           # error_prone_annotations references JDK compiler model types that are not present on Android.
@@ -1482,7 +1494,9 @@ jobs:
           }
 
           build_release_snapshot before
+          cp "$RUNNER_TEMP/app-build-after.gradle.kts" "$APP_GRADLE"
           cp "$RUNNER_TEMP/releaseqa-rule-after.pro" "$QA_RULE"
+          grep -Fq 'androidTestImplementation(kotlin("stdlib"))' "$APP_GRADLE"
           build_release_snapshot after
 
           cmp "$RUNNER_TEMP/production-before-dex.sha256" "$RUNNER_TEMP/production-after-dex.sha256"
@@ -1492,6 +1506,7 @@ jobs:
             echo "production_release_r8_configuration_identity=PASS"
             echo "production_release_keep_rule_set_identity=PASS"
             echo "qa_test_rule_scope=releaseQa-AndroidTest-only"
+            echo "qa_test_dependency_scope=androidTestImplementation-only"
             echo "before_dex_sha256:"
             cat "$RUNNER_TEMP/production-before-dex.sha256"
             echo "after_dex_sha256:"
