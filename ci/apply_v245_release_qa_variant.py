@@ -248,9 +248,9 @@ import android.os.Build
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.caverock.androidsvg.SVG
-import edu.gascnagercoil.environmentalsciences.R
 import java.io.File
 import java.io.FileOutputStream
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -269,18 +269,49 @@ class SvgAndroidSvgScreenshotTest {
             assertTrue("Unable to create external AndroidSVG evidence directory", mkdirs() || isDirectory)
         }
 
-        val candidates = R.raw::class.java.fields.mapNotNull { field ->
-            val name = field.name
-            if (!name.endsWith("_ta")) return@mapNotNull null
-            val resourceId = field.getInt(null)
-            val looksLikeSvg = resources.openRawResource(resourceId)
-                .bufferedReader(Charsets.UTF_8)
-                .use { it.readText().contains("<svg", ignoreCase = true) }
-            if (looksLikeSvg) name to resourceId else null
-        }.sortedBy { it.first }
+        val bookId = resources.getIdentifier("book_content", "raw", context.packageName)
+        assertTrue("book_content raw resource lookup failed", bookId != 0)
+        val book = resources.openRawResource(bookId)
+            .bufferedReader(Charsets.UTF_8)
+            .use { JSONObject(it.readText()) }
+
+        val tamilSvgNames = linkedSetOf<String>()
+        val units = book.getJSONArray("units")
+        for (unitIndex in 0 until units.length()) {
+            val lessons = units.getJSONObject(unitIndex).getJSONArray("lessons")
+            for (lessonIndex in 0 until lessons.length()) {
+                val lesson = lessons.getJSONObject(lessonIndex)
+                val tamil = lesson.getJSONArray("tamil")
+                for (blockIndex in 0 until tamil.length()) {
+                    val block = tamil.getJSONObject(blockIndex)
+                    if (block.optString("kind") == "svg_figure") {
+                        val figure = block.optString("figure")
+                        assertTrue(
+                            "Tamil svg_figure block has an empty figure name in lesson " +
+                                lesson.optString("id"),
+                            figure.isNotBlank(),
+                        )
+                        tamilSvgNames += figure
+                    }
+                }
+            }
+        }
 
         val expected = 46
-        assertEquals("Every Tamil raw SVG must render", expected, candidates.size)
+        assertEquals(
+            "book_content.json must reference exactly 46 unique Tamil svg_figure resources",
+            expected,
+            tamilSvgNames.size,
+        )
+
+        val candidates = tamilSvgNames.sorted().map { name ->
+            val resourceId = resources.getIdentifier(name, "raw", context.packageName)
+            assertTrue(
+                "Tamil svg_figure resource lookup failed through getIdentifier: $name",
+                resourceId != 0,
+            )
+            name to resourceId
+        }
 
         val rendered = mutableListOf<String>()
         for ((name, resourceId) in candidates) {
