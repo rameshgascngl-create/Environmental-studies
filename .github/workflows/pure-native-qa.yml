@@ -1342,6 +1342,16 @@ jobs:
           python -m py_compile ../../ci/apply_v245_fig038_glyph_fix.py
           python ../../ci/apply_v245_fig038_glyph_fix.py
 
+      - name: Audit per-lesson diagram-topic parity
+        id: topic_parity
+        continue-on-error: true
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/audit_v245_topic_parity.py
+          python ../../ci/audit_v245_topic_parity.py
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -1743,6 +1753,8 @@ jobs:
           cp V245_ITEM6_PDF_EXPORT_AUDIT.json qa-artifact/
           cp V245_TTS_VISIBILITY_AUDIT.json qa-artifact/
           cp V245_FIG038_GLYPH_FIX_AUDIT.json qa-artifact/
+          cp V245_TOPIC_PARITY_AUDIT.json qa-artifact/
+          cp ../../ci/parity-allowlist.json qa-artifact/
           cp -R qa-pdf-export qa-artifact/pdf-export-qa
           cp pdf-export-status.txt pdf-export-instrumentation.txt tts-instrumentation.txt tts-smoke-status.txt qa-artifact/
           cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
@@ -1773,6 +1785,16 @@ jobs:
           name: Environmental-Studies-v2.4.5-RELEASE-CANDIDATE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
+
+      - name: Enforce final diagram-topic parity gate
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.topic_parity.outcome }}" != "success" ]; then
+            echo "RELEASE-CANDIDATE ONLY: unresolved diagram-topic parity entries remain."
+            exit 9
+          fi
  tts-smoke-status.txt
           grep -q '^english_tts=PASS
           mkdir -p qa-pdf-export

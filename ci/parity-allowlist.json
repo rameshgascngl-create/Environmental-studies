@@ -1,0 +1,84 @@
+{
+  "u2l1": {
+    "status": "OPEN",
+    "reason": "English has one additional ecosystem energy/nutrient overview diagram; a reviewed Tamil counterpart or explicit consolidation decision is still required.",
+    "matchedTopics": [
+      {
+        "topic": "energy flow and nutrient cycling",
+        "english": ["fig_006_u02_en"],
+        "tamil": ["sci_u02_l21_ecosystem_ta"]
+      }
+    ],
+    "openTopics": [
+      {
+        "topic": "ecosystem energy entry and nutrient recycling overview",
+        "english": ["fig_005_u02_en"],
+        "tamil": []
+      }
+    ]
+  },
+  "u2l5": {
+    "status": "OPEN",
+    "reason": "English has one additional rainfall/runoff/infiltration diagram; topic consolidation against the two Tamil diagrams has not yet been approved.",
+    "matchedTopics": [
+      {
+        "topic": "water cycle",
+        "english": ["fig_013_u02_en"],
+        "tamil": ["sci_u02_l25_watercycle_ta"]
+      },
+      {
+        "topic": "watershed and groundwater recharge",
+        "english": ["fig_015_u02_en"],
+        "tamil": ["sci_u02_l25_recharge_ta"]
+      }
+    ],
+    "openTopics": [
+      {
+        "topic": "rainfall partition into runoff infiltration and recharge",
+        "english": ["fig_014_u02_en"],
+        "tamil": []
+      }
+    ]
+  },
+  "u4l6": {
+    "status": "OPEN",
+    "reason": "English has the restored simplified waste-hierarchy diagram in addition to the two topic-matched diagrams; Tamil treatment of this extra diagram is unresolved.",
+    "matchedTopics": [
+      {
+        "topic": "waste hierarchy",
+        "english": ["fig_039_u04_en"],
+        "tamil": ["sci_u04_l46_hierarchy_ta"]
+      },
+      {
+        "topic": "source segregation and sorting",
+        "english": ["fig_040_u04_en"],
+        "tamil": ["sci_u04_l46_sorting_ta"]
+      }
+    ],
+    "openTopics": [
+      {
+        "topic": "simplified waste hierarchy prevention to disposal",
+        "english": ["fig_038_u04_en"],
+        "tamil": []
+      }
+    ]
+  },
+  "u5l1": {
+    "status": "OPEN",
+    "reason": "English has an additional simplified greenhouse-effect diagram beyond the bilingual SVG pair; Tamil treatment of the extra visual is unresolved.",
+    "matchedTopics": [
+      {
+        "topic": "greenhouse effect infrared absorption and re-emission",
+        "english": ["sci_u05_l51_en"],
+        "tamil": ["sci_u05_l51_ta"]
+      }
+    ],
+    "openTopics": [
+      {
+        "topic": "simplified greenhouse effect",
+        "english": ["fig_046_u05_en"],
+        "tamil": []
+      }
+    ]
+  }
+}
