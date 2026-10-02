@@ -169,11 +169,17 @@ class ReleaseQaLessonEvidenceTest {
                 .putInt("lesson_scroll_${item.unit}_${item.lessonId}_ENGLISH", item.scrollIndex)
                 .commit()
 
-            instrumentation.uiAutomation.executeShellCommand("am force-stop $packageName").close()
+            // Do not force-stop the target package here. releaseQa instrumentation
+            // executes in the target process, so force-stop terminates this harness.
             val launch = context.packageManager.getLaunchIntentForPackage(packageName)
             assertNotNull("Launch intent missing", launch)
-            launch!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            launch!!.addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP,
+            )
             context.startActivity(launch)
+            instrumentation.waitForIdleSync()
 
             assertTrue(
                 "Expected figure title was not visible in ${item.lessonId}: ${item.expectedTitle}",

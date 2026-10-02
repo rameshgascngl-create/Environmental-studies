@@ -1495,33 +1495,145 @@ jobs:
             > releaseqa-missing-runtime-descriptors.txt
 
           python - <<'PYDEX'
+          import struct
           from pathlib import Path
-          src=Path("releaseqa-missing-runtime-descriptors.txt")
-          classes=[]
-          for line in src.read_text().splitlines():
+
+          namespaces=("kotlin.", "kotlinx.", "androidx.test.")
+
+          def u32(data, offset):
+              return struct.unpack_from("<I", data, offset)[0]
+
+          def read_uleb128(data, offset):
+              value=0
+              shift=0
+              pos=offset
+              while True:
+                  b=data[pos]
+                  pos += 1
+                  value |= (b & 0x7f) << shift
+                  if b & 0x80 == 0:
+                      return value, pos
+                  shift += 7
+                  if shift > 35:
+                      raise ValueError("ULEB128 too large")
+
+          def dex_types_and_defs(path):
+              data=path.read_bytes()
+              assert data.startswith(b"dex\n"), path
+              string_ids_size=u32(data, 0x38)
+              string_ids_off=u32(data, 0x3c)
+              type_ids_size=u32(data, 0x40)
+              type_ids_off=u32(data, 0x44)
+              class_defs_size=u32(data, 0x60)
+              class_defs_off=u32(data, 0x64)
+
+              def dex_string(index):
+                  assert 0 <= index < string_ids_size
+                  off=u32(data, string_ids_off + index * 4)
+                  _, pos=read_uleb128(data, off)
+                  end=data.index(0, pos)
+                  return data[pos:end].decode("ascii")
+
+              types=[
+                  dex_string(u32(data, type_ids_off + i * 4))
+                  for i in range(type_ids_size)
+              ]
+              defs={
+                  types[u32(data, class_defs_off + i * 32)]
+                  for i in range(class_defs_size)
+              }
+              return set(types), defs
+
+          def normalise_classes(descriptors):
+              out=set()
+              for desc in descriptors:
+                  while desc.startswith("["):
+                      desc=desc[1:]
+                  if not (desc.startswith("L") and desc.endswith(";")):
+                      continue
+                  cls=desc[1:-1].replace("/", ".")
+                  if cls.startswith(namespaces):
+                      out.add(cls)
+              return out
+
+          def collect(directory):
+              refs=set()
+              defs=set()
+              dex_files=sorted(Path(directory).glob("classes*.dex"))
+              assert dex_files, f"No DEX files in {directory}"
+              for path in dex_files:
+                  types, class_defs=dex_types_and_defs(path)
+                  refs |= normalise_classes(types)
+                  defs |= normalise_classes(class_defs)
+              return refs, defs
+
+          app_refs, app_defs=collect("releaseqa-app-dex")
+          test_refs, test_defs=collect("releaseqa-test-dex")
+          genuine_missing=sorted(test_refs - test_defs - app_defs)
+
+          legacy_src=Path("releaseqa-missing-runtime-descriptors.txt")
+          legacy_classes=[]
+          for line in legacy_src.read_text().splitlines():
               s=line.strip()
               if not s:
                   continue
               assert s.startswith("L") and s.endswith(";"), s
-              classes.append(s[1:-1].replace("/", "."))
+              legacy_classes.append(s[1:-1].replace("/", "."))
+
           Path("releaseqa-missing-runtime-classes.txt").write_text(
-              "\n".join(classes) + ("\n" if classes else ""), encoding="utf-8"
+              "\n".join(legacy_classes) + ("\n" if legacy_classes else ""), encoding="utf-8"
           )
           Path("releaseqa-missing-runtime-keep-rules.pro").write_text(
-              "".join(f"-keep class {c} {{ *; }}\n" for c in classes), encoding="utf-8"
+              "".join(f"-keep class {c} {{ *; }}\n" for c in legacy_classes), encoding="utf-8"
           )
+          Path("releaseqa-genuine-missing-runtime-classes.txt").write_text(
+              "\n".join(genuine_missing) + ("\n" if genuine_missing else ""), encoding="utf-8"
+          )
+
+          baseline=Path("../../ci/v245_releaseqa_runtime_keep.pro").read_text(encoding="utf-8")
+          keep_rules=[]
+          for line in baseline.splitlines():
+              line=line.strip()
+              if not line.startswith("-keep class "):
+                  continue
+              cls=line[len("-keep class "):].split(None, 1)[0]
+              keep_rules.append(cls)
+          assert len(keep_rules) == len(set(keep_rules)), "Duplicate exact keep rules found"
+          matched=sorted(set(keep_rules) & app_defs)
+          unmatched=sorted(set(keep_rules) - app_defs)
+          Path("releaseqa-keep-rules-matching-app-defs.txt").write_text(
+              "\n".join(matched) + ("\n" if matched else ""), encoding="utf-8"
+          )
+          Path("releaseqa-keep-rules-unmatched-app-defs.txt").write_text(
+              "\n".join(unmatched) + ("\n" if unmatched else ""), encoding="utf-8"
+          )
+
           counts={
               "test_namespace_descriptors": sum(1 for _ in Path("releaseqa-test-namespace-descriptors.txt").open()),
               "app_namespace_descriptors": sum(1 for _ in Path("releaseqa-app-namespace-descriptors.txt").open()),
-              "missing_runtime_descriptors": len(classes),
+              "legacy_descriptor_difference": len(legacy_classes),
+              "test_referenced_namespace_classes": len(test_refs),
+              "test_defined_namespace_classes": len(test_defs),
+              "app_defined_namespace_classes": len(app_defs),
+              "genuine_missing_runtime_classes": len(genuine_missing),
+              "keep_rules_total": len(keep_rules),
+              "keep_rules_matching_app_defined_classes": len(matched),
+              "keep_rules_matching_nothing_in_app_dex": len(unmatched),
           }
-          Path("releaseqa-dex-audit-summary.txt").write_text(
-              "\n".join(f"{k}={v}" for k,v in counts.items())+"\n", encoding="utf-8"
+          summary="\n".join(f"{k}={v}" for k,v in counts.items())+"\n"
+          Path("releaseqa-dex-audit-summary.txt").write_text(summary, encoding="utf-8")
+          Path("releaseqa-runtime-keep-match-summary.txt").write_text(
+              "\n".join([
+                  f"keep_rules_total={len(keep_rules)}",
+                  f"keep_rules_matching_app_defined_classes={len(matched)}",
+                  f"keep_rules_matching_nothing_in_app_dex={len(unmatched)}",
+              ])+"\n",
+              encoding="utf-8",
           )
-          print(Path("releaseqa-dex-audit-summary.txt").read_text(), end="")
-          print("FULL_MISSING_RUNTIME_CLASS_LIST_BEGIN")
-          print(Path("releaseqa-missing-runtime-classes.txt").read_text(), end="")
-          print("FULL_MISSING_RUNTIME_CLASS_LIST_END")
+          print(summary, end="")
+          print("GENUINE_MISSING_RUNTIME_CLASS_LIST_BEGIN")
+          print(Path("releaseqa-genuine-missing-runtime-classes.txt").read_text(), end="")
+          print("GENUINE_MISSING_RUNTIME_CLASS_LIST_END")
           PYDEX
 
           sha256sum "$APP_APK" "$TEST_APK" | tee releaseqa-apk-sha256.txt
@@ -1584,6 +1696,21 @@ jobs:
           grep -Fq -- '-keep class kotlin.LazyKt__LazyJVMKt { *; }' "$QA_TARGET_RULE"
           grep -Fq -- '-keep class kotlin.LazyKt__LazyKt { *; }' "$QA_TARGET_RULE"
           build_release_snapshot after
+
+          strings "$RUNNER_TEMP"/production-after-dex/classes*.dex \
+            | grep -E '^https://rameshgascngl-create[.]github[.]io/.*privacy-policy[.]html$' \
+            | sort -u > release-privacy-dex-urls.txt || true
+          test -s release-privacy-dex-urls.txt
+          test "$(wc -l < release-privacy-dex-urls.txt)" -eq 1
+          BUILT_PRIVACY_URL="$(cat release-privacy-dex-urls.txt)"
+          {
+            echo "built_release_dex_privacy_url=$BUILT_PRIVACY_URL"
+            echo "ci_privacy_url=$PRIVACY_URL"
+          } | tee release-privacy-dex-status.txt
+          test "$BUILT_PRIVACY_URL" = "$PRIVACY_URL"
+          OLD_PRIVACY_URL="https://rameshgascngl-create.github.io/Environmental-studies/privacy-policy.html"
+          ! grep -Fxq "$OLD_PRIVACY_URL" release-privacy-dex-urls.txt
+          echo "built_release_privacy_url_match=PASS" | tee -a release-privacy-dex-status.txt
 
           cmp "$RUNNER_TEMP/production-before-dex.sha256" "$RUNNER_TEMP/production-after-dex.sha256"
           cmp "$RUNNER_TEMP/production-before-r8-configuration.txt" "$RUNNER_TEMP/production-after-r8-configuration.txt"
@@ -1785,12 +1912,13 @@ jobs:
 
           python - <<'PYCOVER'
           from pathlib import Path
-          missing=[x.strip() for x in Path("releaseqa-missing-runtime-classes.txt").read_text().splitlines() if x.strip()]
+          legacy=[x.strip() for x in Path("releaseqa-missing-runtime-classes.txt").read_text().splitlines() if x.strip()]
+          genuine=[x.strip() for x in Path("releaseqa-genuine-missing-runtime-classes.txt").read_text().splitlines() if x.strip()]
           target=Path("app/proguard-releaseqa-target.pro").read_text()
           test_rules=Path("app/proguard-releaseqa-androidtest.pro").read_text()
           baseline=Path("../../ci/v245_releaseqa_runtime_keep.pro").read_text()
           uncovered=[]
-          for cls in missing:
+          for cls in legacy:
               rule=f"-keep class {cls} {{ *; }}"
               if rule not in target or rule not in test_rules or rule not in baseline:
                   uncovered.append(cls)
@@ -1798,10 +1926,30 @@ jobs:
               "\n".join(uncovered)+("\n" if uncovered else ""), encoding="utf-8"
           )
           if uncovered:
-              print("STOP: classes outside the complete Run #199 pass remain. Full list:")
+              print("STOP: broad Run #199 compatibility classes are not fully represented in the QA-only keep set:")
               print("\n".join(uncovered))
               raise SystemExit(23)
-          print(f"releaseqa_missing_class_coverage=PASS current_missing={len(missing)}")
+          if genuine:
+              print("STOP: test DEX references namespace classes defined by neither test DEX nor app DEX:")
+              print("\n".join(genuine))
+              raise SystemExit(24)
+
+          summary={}
+          for line in Path("releaseqa-runtime-keep-match-summary.txt").read_text().splitlines():
+              if "=" in line:
+                  k,v=line.split("=",1)
+                  summary[k]=int(v)
+          assert summary["keep_rules_total"] == 1365, summary
+          assert (
+              summary["keep_rules_matching_app_defined_classes"]
+              + summary["keep_rules_matching_nothing_in_app_dex"]
+              == summary["keep_rules_total"]
+          ), summary
+          print("releaseqa_genuine_missing_class_coverage=PASS genuine_missing=0")
+          print(f"releaseqa_broad_descriptor_difference={len(legacy)}")
+          print(f"releaseqa_keep_rules_total={summary['keep_rules_total']}")
+          print(f"releaseqa_keep_rules_matching_app_defined_classes={summary['keep_rules_matching_app_defined_classes']}")
+          print(f"releaseqa_keep_rules_matching_nothing_in_app_dex={summary['keep_rules_matching_nothing_in_app_dex']}")
           PYCOVER
 
       - name: Prepare AndroidSVG emulator QA script
@@ -1873,10 +2021,19 @@ jobs:
             "$INSTRUMENTATION" | tee pdf-export-instrumentation.txt
           grep -Eq '^OK \([0-9]+ test' pdf-export-instrumentation.txt
 
+          adb logcat -c || true
+          set +e
           adb shell am instrument -w \
             -e class edu.gascnagercoil.environmentalsciences.qa.ReleaseQaLessonEvidenceTest \
             "$INSTRUMENTATION" | tee releaseqa-lesson-instrumentation.txt
-          grep -Eq '^OK \([0-9]+ test' releaseqa-lesson-instrumentation.txt
+          LESSON_RC=${PIPESTATUS[0]}
+          set -e
+          adb logcat -d -v threadtime > releaseqa-lesson-logcat.txt || true
+          if [ "$LESSON_RC" -ne 0 ] || ! grep -Eq '^OK \([0-9]+ test' releaseqa-lesson-instrumentation.txt; then
+            echo "ReleaseQaLessonEvidenceTest failed; diagnostic logcat follows." >&2
+            tail -n 250 releaseqa-lesson-logcat.txt >&2 || true
+            exit 12
+          fi
           rm -rf qa-releaseqa-screens
           mkdir -p qa-releaseqa-screens
           for NAME in u2l1-en-fig005.png u2l5-en-fig013.png u4l6-en-fig038.png u5l1-en-fig046.png; do
@@ -2083,6 +2240,12 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-missing-runtime-classes.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-missing-runtime-keep-rules.pro
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-dex-audit-summary.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-genuine-missing-runtime-classes.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-runtime-keep-match-summary.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-keep-rules-matching-app-defs.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-keep-rules-unmatched-app-defs.txt
+            native-build/Environmental-Studies-v2.0.0-native/release-privacy-dex-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/release-privacy-dex-urls.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-apk-sha256.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-app-dex-sha256.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-test-dex-sha256.txt
@@ -2090,6 +2253,8 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/app/proguard-releaseqa-androidtest.pro
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-uncovered-runtime-classes.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-logcat.txt
           if-no-files-found: warn
 
       - name: Verify engine-present bilingual TTS result
@@ -2257,7 +2422,7 @@ jobs:
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
           cp "$RELEASE_QA_APK" qa-artifact/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
           cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
-          cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt qa-artifact/
+          cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt release-privacy-dex-status.txt release-privacy-dex-urls.txt releaseqa-runtime-keep-match-summary.txt releaseqa-genuine-missing-runtime-classes.txt qa-artifact/
           if [ -f release-certificate.txt ]; then cp release-certificate.txt qa-artifact/; fi
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json V240_C1_IMAGE_DECODE_AUDIT.json V240_C2_SVG_LEGIBILITY_AUDIT.json V240_C3_TAMIL_FONT_AUDIT.json V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
@@ -2285,7 +2450,7 @@ jobs:
           if [ -f tts-engine-packages.txt ]; then cp tts-engine-packages.txt qa-artifact/; fi
           if [ -f ../../privacy-url-status.txt ]; then cp ../../privacy-url-status.txt qa-artifact/; fi
           cp fig038-screen-instrumentation.txt fig038-screen-status.txt fig038-u4l6-screen.png qa-artifact/
-          cp releaseqa-build-status.txt releaseqa-badging.txt releaseqa-certificate.txt releaseqa-target-dex-strings.txt releaseqa-lesson-status.txt releaseqa-lesson-instrumentation.txt qa-artifact/
+          cp releaseqa-build-status.txt releaseqa-badging.txt releaseqa-certificate.txt releaseqa-target-dex-strings.txt releaseqa-lesson-status.txt releaseqa-lesson-instrumentation.txt releaseqa-lesson-logcat.txt qa-artifact/
           cp -R qa-releaseqa-screens qa-artifact/releaseqa-screens
           cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
           cp ../../FACTS_TO_VERIFY.md ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
