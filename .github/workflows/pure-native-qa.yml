@@ -1298,9 +1298,19 @@ jobs:
           esac
           BODY="$(mktemp)"
           HTTP_CODE="$(curl -LsS --retry 3 -o "$BODY" -w '%{http_code}' "$PRIVACY_URL")"
+          TITLE_MATCH=false
+          VERSION_MATCH=false
+          if grep -q '<strong>Environmental Studies</strong>' "$BODY"; then TITLE_MATCH=true; fi
+          if grep -q 'Policy version: 1.1 · 1 October 2026' "$BODY"; then VERSION_MATCH=true; fi
+          {
+            echo "privacy_url=$PRIVACY_URL"
+            echo "http_status=$HTTP_CODE"
+            echo "contains_environmental_studies=$TITLE_MATCH"
+            echo "contains_policy_version_1_1_1_october_2026=$VERSION_MATCH"
+          } | tee "$GITHUB_WORKSPACE/privacy-url-status.txt"
           test "$HTTP_CODE" = "200"
-          grep -q '<strong>Environmental Studies</strong>' "$BODY"
-          grep -q 'Policy version: 1.1 · 1 October 2026' "$BODY"
+          test "$TITLE_MATCH" = "true"
+          test "$VERSION_MATCH" = "true"
 
       - name: Apply item 1 English figure content fixes
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1486,6 +1496,43 @@ jobs:
             --aab "$RELEASE_AAB" \
             --aapt "$AAPT"
 
+          python - "$RELEASE_APK" <<'PYFIGREL'
+          import hashlib
+          import json
+          import sys
+          import zipfile
+          from io import BytesIO
+          from pathlib import Path
+          from PIL import Image
+
+          apk=Path(sys.argv[1])
+          integrity=json.loads(Path("V245_RELEASE_RESOURCE_INTEGRITY.json").read_text())
+          resource_path=integrity["apk"]["resolvedResourcePaths"]["fig_038_u04_en"]
+          with zipfile.ZipFile(apk) as z:
+              payload=z.read(resource_path)
+          sha=hashlib.sha256(payload).hexdigest()
+          expected="994d1b3900cc01e80f5a649b704bca77133c16eb49868a01ec60451b0e5f6094"
+          assert sha==expected,(sha,expected)
+          im=Image.open(BytesIO(payload))
+          assert im.size==(1600,511),im.size
+          Path("fig038-native-release.png").write_bytes(payload)
+          report={
+              "scope":"built unsigned R8 release APK native fig_038 verification",
+              "resource":"fig_038_u04_en",
+              "resolvedApkPath":resource_path,
+              "sha256":sha,
+              "expectedSha256":expected,
+              "dimensions":[1600,511],
+              "nativeReleaseAssetCheck":"PASS",
+              "arrowRepairHashMatched":True,
+              "missingGlyphBoxSourceRepair":"PASS_BY_EXACT_APPROVED_HASH",
+              "releaseVariantInstalledLessonScreenCheck":"BLOCKED_UNSIGNED_RELEASE_NOT_INSTALLABLE_WITHOUT_PRODUCTION_SIGNING",
+              "debugLessonScreenEvidence":"collected separately by instrumentation; not accepted as release-variant proof"
+          }
+          Path("V245_FIG038_RELEASE_VERIFY.json").write_text(json.dumps(report,indent=2)+"\n")
+          print(json.dumps(report,indent=2))
+          PYFIGREL
+
       - name: release-parity-integrity
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -1582,6 +1629,11 @@ jobs:
             -e class edu.gascnagercoil.environmentalsciences.qa.PdfExporterRenderTest \
             "$INSTRUMENTATION" | tee pdf-export-instrumentation.txt
           grep -Eq '^OK \([0-9]+ test' pdf-export-instrumentation.txt
+
+          adb shell pm list packages | tr -d '\r' | grep -Ei 'tts|speech' | tee tts-engine-packages.txt || true
+          if adb shell pm list packages | tr -d '\r' | grep -Fxq 'package:com.google.android.tts'; then
+            adb shell settings put secure tts_default_synth com.google.android.tts || true
+          fi
 
           adb shell am instrument -w \
             -e class edu.gascnagercoil.environmentalsciences.qa.TtsVisibilitySmokeTest \
@@ -1718,10 +1770,25 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
+          target: google_apis_playstore
           arch: x86_64
           profile: pixel_6
-          disable-animations: true
+          disable-animations: false
           script: bash "$RUNNER_TEMP/v245-androidsvg-emulator.sh"
+
+      - name: Verify engine-present bilingual TTS result
+        id: tts_engine
+        continue-on-error: true
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s tts-smoke-status.txt
+          grep -Fx 'tts_environment=ENGINE_PRESENT' tts-smoke-status.txt
+          grep -Fx 'tts_init=PASS' tts-smoke-status.txt
+          grep -Fx 'english_tts=PASS' tts-smoke-status.txt
+          grep -Fx 'tamil_voice_available=true' tts-smoke-status.txt
+          grep -Fx 'tamil_tts=PASS' tts-smoke-status.txt
 
       - name: Upload AndroidSVG Tamil render evidence
         uses: actions/upload-artifact@v4
@@ -1865,10 +1932,14 @@ jobs:
           cp V245_FIG038_GLYPH_FIX_AUDIT.json qa-artifact/
           cp V245_RELEASE_RESOURCE_KEEP_AUDIT.json qa-artifact/
           cp V245_RELEASE_RESOURCE_INTEGRITY.json qa-artifact/
+          cp V245_FIG038_RELEASE_VERIFY.json qa-artifact/
+          cp fig038-native-release.png qa-artifact/
           cp V245_TOPIC_PARITY_AUDIT.json qa-artifact/
           cp ../../ci/parity-allowlist.json qa-artifact/
           cp -R qa-pdf-export qa-artifact/pdf-export-qa
           cp pdf-export-status.txt pdf-export-instrumentation.txt tts-instrumentation.txt tts-smoke-status.txt qa-artifact/
+          if [ -f tts-engine-packages.txt ]; then cp tts-engine-packages.txt qa-artifact/; fi
+          if [ -f ../../privacy-url-status.txt ]; then cp ../../privacy-url-status.txt qa-artifact/; fi
           cp fig038-screen-instrumentation.txt fig038-screen-status.txt fig038-u4l6-screen.png qa-artifact/
           cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
           cp ../../FACTS_TO_VERIFY.md ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
@@ -1915,6 +1986,10 @@ jobs:
           fi
           if [ "${{ steps.topic_parity.outcome }}" != "success" ]; then
             echo "RELEASE-CANDIDATE ONLY: unresolved diagram-topic parity entries remain."
+            failed=1
+          fi
+          if [ "${{ steps.tts_engine.outcome }}" != "success" ]; then
+            echo "RELEASE-CANDIDATE ONLY: engine-present English+Tamil TTS verification has not passed."
             failed=1
           fi
           if [ "$failed" -ne 0 ]; then
