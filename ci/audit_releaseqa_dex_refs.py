@@ -56,7 +56,7 @@ def normalize_class_descriptor(desc: str) -> str | None:
     return None
 
 
-def parse_dex(data: bytes) -> tuple[set[str], set[str]]:
+def parse_dex(data: bytes) -> tuple[set[str], set[str], set[str]]:
     if len(data) < 0x70 or not data.startswith(b"dex\n"):
         raise ValueError("not a dex file")
 
@@ -77,11 +77,14 @@ def parse_dex(data: bytes) -> tuple[set[str], set[str]]:
         descriptor_idx = u32(data, type_ids_off + i * 4)
         types.append(strings[descriptor_idx])
 
+    all_referenced: set[str] = set()
     referenced: set[str] = set()
     for desc in types:
         normalized = normalize_class_descriptor(desc)
-        if normalized and normalized.startswith(PREFIXES):
-            referenced.add(normalized)
+        if normalized:
+            all_referenced.add(normalized)
+            if normalized.startswith(PREFIXES):
+                referenced.add(normalized)
 
     defined: set[str] = set()
     for i in range(class_defs_size):
@@ -90,11 +93,12 @@ def parse_dex(data: bytes) -> tuple[set[str], set[str]]:
         if desc:
             defined.add(desc)
 
-    return referenced, defined
+    return all_referenced, referenced, defined
 
 
-def apk_dex_sets(path: Path) -> tuple[set[str], set[str], list[dict[str, object]]]:
-    all_refs: set[str] = set()
+def apk_dex_sets(path: Path) -> tuple[set[str], set[str], set[str], list[dict[str, object]]]:
+    all_class_refs: set[str] = set()
+    filtered_refs: set[str] = set()
     all_defs: set[str] = set()
     dex_meta: list[dict[str, object]] = []
     with zipfile.ZipFile(path) as zf:
@@ -106,19 +110,21 @@ def apk_dex_sets(path: Path) -> tuple[set[str], set[str], list[dict[str, object]
             raise SystemExit(f"No classes*.dex found in {path}")
         for name in dex_names:
             data = zf.read(name)
-            refs, defs = parse_dex(data)
-            all_refs |= refs
+            refs_all, refs_filtered, defs = parse_dex(data)
+            all_class_refs |= refs_all
+            filtered_refs |= refs_filtered
             all_defs |= defs
             dex_meta.append(
                 {
                     "name": name,
                     "sha256": hashlib.sha256(data).hexdigest(),
                     "bytes": len(data),
-                    "filteredReferencedClassCount": len(refs),
+                    "allReferencedClassCount": len(refs_all),
+                    "filteredReferencedClassCount": len(refs_filtered),
                     "definedClassCount": len(defs),
                 }
             )
-    return all_refs, all_defs, dex_meta
+    return all_class_refs, filtered_refs, all_defs, dex_meta
 
 
 def java_name(desc: str) -> str:
@@ -147,11 +153,12 @@ def main() -> int:
     ap.add_argument("--keep-out", required=True, type=Path)
     args = ap.parse_args()
 
-    test_refs, test_defs, test_dex = apk_dex_sets(args.test_apk)
-    _, app_defs, app_dex = apk_dex_sets(args.app_apk)
+    test_all_refs, test_refs, test_defs, test_dex = apk_dex_sets(args.test_apk)
+    _, _, app_defs, app_dex = apk_dex_sets(args.app_apk)
 
     absent_from_app = sorted(test_refs - app_defs)
     unresolved_combined = sorted(test_refs - app_defs - test_defs)
+    unresolved_all_combined = sorted(test_all_refs - app_defs - test_defs)
     defined_in_test_not_app = sorted((test_refs & test_defs) - app_defs)
 
     args.missing_out.write_text(
@@ -178,6 +185,8 @@ def main() -> int:
         "definedInTestButAbsentFromApp": [java_name(x) for x in defined_in_test_not_app],
         "unresolvedInCombinedRuntimeCount": len(unresolved_combined),
         "unresolvedInCombinedRuntime": [java_name(x) for x in unresolved_combined],
+        "unresolvedAllCombinedRuntimeCount": len(unresolved_all_combined),
+        "unresolvedAllCombinedRuntime": [java_name(x) for x in unresolved_all_combined],
         "generatedKeepRuleCount": len(absent_from_app),
         "generatedKeepRulesFile": str(args.keep_out),
     }
@@ -186,6 +195,7 @@ def main() -> int:
     print(json.dumps(report, indent=2, sort_keys=True))
     print(f"EXACT_KEEP_RULE_COUNT={len(absent_from_app)}")
     print(f"UNRESOLVED_COMBINED_RUNTIME_COUNT={len(unresolved_combined)}")
+    print(f"UNRESOLVED_ALL_COMBINED_RUNTIME_COUNT={len(unresolved_all_combined)}")
     return 0
 
 
