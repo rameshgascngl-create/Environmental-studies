@@ -1599,13 +1599,31 @@ jobs:
               cls=line[len("-keep class "):].split(None, 1)[0]
               keep_rules.append(cls)
           assert len(keep_rules) == len(set(keep_rules)), "Duplicate exact keep rules found"
-          matched=sorted(set(keep_rules) & app_defs)
-          unmatched=sorted(set(keep_rules) - app_defs)
+          keep_rule_set=set(keep_rules)
+          preexisting_lazy={
+              "kotlin.LazyKt",
+              "kotlin.LazyKt__LazyJVMKt",
+              "kotlin.LazyKt__LazyKt",
+          }
+          assert preexisting_lazy <= keep_rule_set
+          run199_keep_rules=keep_rule_set - preexisting_lazy
+          assert len(run199_keep_rules) == 1365, len(run199_keep_rules)
+
+          matched=sorted(keep_rule_set & app_defs)
+          unmatched=sorted(keep_rule_set - app_defs)
+          run199_matched=sorted(run199_keep_rules & app_defs)
+          run199_unmatched=sorted(run199_keep_rules - app_defs)
           Path("releaseqa-keep-rules-matching-app-defs.txt").write_text(
               "\n".join(matched) + ("\n" if matched else ""), encoding="utf-8"
           )
           Path("releaseqa-keep-rules-unmatched-app-defs.txt").write_text(
               "\n".join(unmatched) + ("\n" if unmatched else ""), encoding="utf-8"
+          )
+          Path("releaseqa-run199-keep-rules-matching-app-defs.txt").write_text(
+              "\n".join(run199_matched) + ("\n" if run199_matched else ""), encoding="utf-8"
+          )
+          Path("releaseqa-run199-keep-rules-unmatched-app-defs.txt").write_text(
+              "\n".join(run199_unmatched) + ("\n" if run199_unmatched else ""), encoding="utf-8"
           )
 
           counts={
@@ -1617,6 +1635,10 @@ jobs:
               "app_defined_namespace_classes": len(app_defs),
               "genuine_missing_runtime_classes": len(genuine_missing),
               "keep_rules_total": len(keep_rules),
+              "preexisting_lazy_keep_rules": len(preexisting_lazy),
+              "run199_keep_rules_total": len(run199_keep_rules),
+              "run199_keep_rules_matching_app_defined_classes": len(run199_matched),
+              "run199_keep_rules_matching_nothing_in_app_dex": len(run199_unmatched),
               "keep_rules_matching_app_defined_classes": len(matched),
               "keep_rules_matching_nothing_in_app_dex": len(unmatched),
           }
@@ -1625,6 +1647,10 @@ jobs:
           Path("releaseqa-runtime-keep-match-summary.txt").write_text(
               "\n".join([
                   f"keep_rules_total={len(keep_rules)}",
+                  f"preexisting_lazy_keep_rules={len(preexisting_lazy)}",
+                  f"run199_keep_rules_total={len(run199_keep_rules)}",
+                  f"run199_keep_rules_matching_app_defined_classes={len(run199_matched)}",
+                  f"run199_keep_rules_matching_nothing_in_app_dex={len(run199_unmatched)}",
                   f"keep_rules_matching_app_defined_classes={len(matched)}",
                   f"keep_rules_matching_nothing_in_app_dex={len(unmatched)}",
               ])+"\n",
@@ -1939,7 +1965,14 @@ jobs:
               if "=" in line:
                   k,v=line.split("=",1)
                   summary[k]=int(v)
-          assert summary["keep_rules_total"] == 1365, summary
+          assert summary["keep_rules_total"] == 1368, summary
+          assert summary["preexisting_lazy_keep_rules"] == 3, summary
+          assert summary["run199_keep_rules_total"] == 1365, summary
+          assert (
+              summary["run199_keep_rules_matching_app_defined_classes"]
+              + summary["run199_keep_rules_matching_nothing_in_app_dex"]
+              == summary["run199_keep_rules_total"]
+          ), summary
           assert (
               summary["keep_rules_matching_app_defined_classes"]
               + summary["keep_rules_matching_nothing_in_app_dex"]
@@ -1947,9 +1980,10 @@ jobs:
           ), summary
           print("releaseqa_genuine_missing_class_coverage=PASS genuine_missing=0")
           print(f"releaseqa_broad_descriptor_difference={len(legacy)}")
-          print(f"releaseqa_keep_rules_total={summary['keep_rules_total']}")
-          print(f"releaseqa_keep_rules_matching_app_defined_classes={summary['keep_rules_matching_app_defined_classes']}")
-          print(f"releaseqa_keep_rules_matching_nothing_in_app_dex={summary['keep_rules_matching_nothing_in_app_dex']}")
+          print(f"releaseqa_run199_keep_rules_total={summary['run199_keep_rules_total']}")
+          print(f"releaseqa_run199_keep_rules_matching_app_defined_classes={summary['run199_keep_rules_matching_app_defined_classes']}")
+          print(f"releaseqa_run199_keep_rules_matching_nothing_in_app_dex={summary['run199_keep_rules_matching_nothing_in_app_dex']}")
+          print(f"releaseqa_total_keep_rules_including_3_preexisting_lazy={summary['keep_rules_total']}")
           PYCOVER
 
       - name: Prepare AndroidSVG emulator QA script
@@ -2244,6 +2278,8 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-runtime-keep-match-summary.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-keep-rules-matching-app-defs.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-keep-rules-unmatched-app-defs.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-run199-keep-rules-matching-app-defs.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-run199-keep-rules-unmatched-app-defs.txt
             native-build/Environmental-Studies-v2.0.0-native/release-privacy-dex-status.txt
             native-build/Environmental-Studies-v2.0.0-native/release-privacy-dex-urls.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-apk-sha256.txt
