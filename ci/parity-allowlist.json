@@ -75,7 +75,11 @@
         ],
         "tamil": []
       }
-    ]
+    ],
+    "classification": "LABEL_SPECIFIC",
+    "extraEnglishFigure": "fig_005_u02_en",
+    "recommendation": "PRODUCE_TAMIL_COUNTERPART",
+    "recommendationReason": "The extra English figure contains embedded labels (Sun, Producers, Consumers, Decomposers) and presents a distinct introductory trophic-role schematic."
   },
   "u2l2": {
     "status": "BALANCED",
@@ -156,7 +160,11 @@
         ],
         "tamil": []
       }
-    ]
+    ],
+    "classification": "LABEL_SPECIFIC",
+    "extraEnglishFigure": "fig_014_u02_en",
+    "recommendation": "PRODUCE_TAMIL_COUNTERPART",
+    "recommendationReason": "The extra English figure contains embedded hydrology labels (Vegetation slows runoff, Infiltration, Groundwater) and adds a distinct runoff/infiltration teaching view."
   },
   "u2l6": {
     "status": "BALANCED",
@@ -392,7 +400,11 @@
         ],
         "tamil": []
       }
-    ]
+    ],
+    "classification": "LABEL_SPECIFIC",
+    "extraEnglishFigure": "fig_038_u04_en",
+    "recommendation": "ACCEPT_DIFFERENCE",
+    "recommendationReason": "The English labels are not reusable as-is in Tamil, but the Tamil lesson already has a dedicated waste-hierarchy SVG; the extra English simplified hierarchy is pedagogically redundant."
   },
   "u4l7": {
     "status": "BALANCED",
@@ -448,7 +460,11 @@
         ],
         "tamil": []
       }
-    ]
+    ],
+    "classification": "LABEL_SPECIFIC",
+    "extraEnglishFigure": "fig_046_u05_en",
+    "recommendation": "ACCEPT_DIFFERENCE",
+    "recommendationReason": "The English labels are not reusable as-is in Tamil, but the lesson already has an English/Tamil greenhouse-effect SVG pair; the extra English PNG is a simplified reinforcement diagram."
   },
   "u5l2": {
     "status": "BALANCED",
