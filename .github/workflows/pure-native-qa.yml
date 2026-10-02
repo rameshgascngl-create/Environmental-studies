@@ -1401,9 +1401,15 @@ jobs:
             printf '%s' "$ENVSTUDIES_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
             chmod 600 "$KEYSTORE"
             ENVSTUDIES_KEYSTORE_PATH="$KEYSTORE" gradle --no-daemon :app:assembleRelease :app:bundleRelease -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+            SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+            test -f "$SIGNED_APK"
+            APKSIGNER="$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
+            "$APKSIGNER" verify --print-certs "$SIGNED_APK" | tee release-certificate.txt
+            grep -q 'Signer #1 certificate SHA-256 digest:' release-certificate.txt
             echo "signed_release_available=true" | tee "$STATUS"
           else
             echo "signed_release_available=false" | tee "$STATUS"
+            echo "SIGNED RELEASE BLOCKED: ORIGINAL SIGNING CREDENTIALS REQUIRED" | tee -a "$STATUS"
             echo "Original production signing secrets are not configured on this runner; no replacement key was generated." | tee -a "$STATUS"
           fi
 
@@ -1699,6 +1705,7 @@ jobs:
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
           cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
           cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt qa-artifact/
+          if [ -f release-certificate.txt ]; then cp release-certificate.txt qa-artifact/; fi
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json V240_C1_IMAGE_DECODE_AUDIT.json V240_C2_SVG_LEGIBILITY_AUDIT.json V240_C3_TAMIL_FONT_AUDIT.json V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
           cp V241_DEVICE_FIGURE_QA_AUDIT.json V242_TAMIL_VISUAL_ICON_AUDIT.json V243_LIVING_ENVIRONMENT_AUDIT.json V243_VISUAL_ATLAS_COMPLETION_AUDIT.json V244_RELEASE_READINESS_AUDIT.json qa-artifact/
