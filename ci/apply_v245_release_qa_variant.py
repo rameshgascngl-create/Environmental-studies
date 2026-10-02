@@ -60,7 +60,9 @@ dependency_anchor = '    androidTestImplementation("androidx.test.ext:junit:1.2.
 assert after.count(dependency_anchor) == 1
 after = after.replace(
     dependency_anchor,
-    dependency_anchor + '    androidTestImplementation("com.google.errorprone:error_prone_annotations:2.36.0")\n',
+    dependency_anchor
+    + '    androidTestImplementation("com.google.errorprone:error_prone_annotations:2.36.0")\n'
+    + '    androidTestImplementation(kotlin("stdlib"))\n',
     1,
 )
 GRADLE.write_text(after, encoding="utf-8")
@@ -219,6 +221,7 @@ AUDIT.write_text(json.dumps({
     "distributionAllowed": False,
     "testBuildType": "releaseQa",
     "androidTestR8SupportDependency": "com.google.errorprone:error_prone_annotations:2.36.0",
+    "androidTestKotlinStdlibDependency": "kotlin(\\\"stdlib\\\")",
     "androidTestR8Rules": str(QA_TEST_PROGUARD),
     "androidTestR8DontWarn": "javax.lang.model.element.**",
     "androidTestR8KotlinKeepClasses": [
