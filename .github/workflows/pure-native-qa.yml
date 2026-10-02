@@ -1879,6 +1879,59 @@ jobs:
             --aab "$RELEASE_AAB" \
             --aapt "$AAPT"
 
+      - name: Stage pre-emulator installable artefacts
+        if: env.RELEASEQA_MODE == 'full'
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf pre-emulator-artifacts
+          mkdir -p pre-emulator-artifacts
+
+          RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          RELEASE_AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
+          test -f "$RELEASE_APK"
+          test -f "$RELEASE_AAB"
+          cp "$RELEASE_APK" pre-emulator-artifacts/Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE.apk
+          cp "$RELEASE_AAB" pre-emulator-artifacts/Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE.aab
+
+          gradle --no-daemon :app:assembleReleaseQa \
+            -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
+            --stacktrace
+          RELEASE_QA_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -f "$RELEASE_QA_APK"
+          cp "$RELEASE_QA_APK" pre-emulator-artifacts/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
+
+          {
+            echo "releaseQa_apk=QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION"
+            echo "production_release_apk=UNSIGNED PRODUCTION RELEASE QA ARTEFACT"
+            echo "production_release_aab=UNSIGNED PRODUCTION RELEASE QA ARTEFACT"
+          } > pre-emulator-artifacts/VARIANT-LABELS.txt
+
+      - name: Upload releaseQa QA-only APK before emulator
+        if: always() && env.RELEASEQA_MODE == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED-APK-${{ github.run_number }}-${{ github.run_attempt }}
+          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
+          if-no-files-found: error
+
+      - name: Upload unsigned production release APK before emulator
+        if: always() && env.RELEASEQA_MODE == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE-APK-${{ github.run_number }}-${{ github.run_attempt }}
+          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE.apk
+          if-no-files-found: error
+
+      - name: Upload unsigned production release AAB before emulator
+        if: always() && env.RELEASEQA_MODE == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE-AAB-${{ github.run_number }}-${{ github.run_attempt }}
+          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE.aab
+          if-no-files-found: error
+
       - name: Build signed release APK and AAB when original signing secrets are present
         if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -2168,55 +2221,35 @@ jobs:
           rm -rf qa-svg-androidsvg
           mkdir -p qa-svg-androidsvg
 
-          # The screenshot harness can write via either targetContext or the
-          # instrumentation context. Detect the actual owner instead of
-          # assuming the target package owns files/svg-androidsvg.
-          echo "androidsvg_target_package=$PACKAGE"
-          echo "androidsvg_test_package=$TEST_PACKAGE"
+          # SvgAndroidSvgScreenshotTest writes the 46 PNG renders and its
+          # result manifest to the target app's external files directory.
+          # This path is readable by adb pull on the API-35 emulator and does
+          # not depend on run-as/private app data access.
+          SDK_LEVEL="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+          REMOTE_RENDER_DIR="/sdcard/Android/data/$PACKAGE/files/svg-androidsvg"
+          {
+            echo "androidsvg_target_package=$PACKAGE"
+            echo "androidsvg_emulator_api=$SDK_LEVEL"
+            echo "androidsvg_external_path=$REMOTE_RENDER_DIR"
+          } | tee androidsvg-render-package.txt
+          test "$SDK_LEVEL" = "35"
 
-          RENDER_PACKAGE=""
-          for CANDIDATE in "$PACKAGE" "$TEST_PACKAGE"; do
-            [ -n "$CANDIDATE" ] || continue
-            echo "Checking AndroidSVG render output in $CANDIDATE"
+          adb shell test -d "$REMOTE_RENDER_DIR"
+          adb shell test -r "$REMOTE_RENDER_DIR/result-manifest.txt"
+          adb shell ls -la "$REMOTE_RENDER_DIR" | tee androidsvg-external-ls.txt
+          adb pull "$REMOTE_RENDER_DIR/." qa-svg-androidsvg/
 
-            # Avoid nested device-shell quoting. Test the private directory
-            # directly and enumerate its entries through run-as.
-            if adb shell run-as "$CANDIDATE" test -d files/svg-androidsvg; then
-              FILE_LIST="$(adb shell run-as "$CANDIDATE" ls files/svg-androidsvg | tr -d '\r')"
-              COUNT="$(printf '%s\n' "$FILE_LIST" | grep -Ec '[.]png$' || true)"
-              echo "androidsvg_candidate_png_count=$COUNT package=$CANDIDATE"
-              if [ "${COUNT:-0}" -gt 0 ]; then
-                RENDER_PACKAGE="$CANDIDATE"
-                break
-              fi
-            fi
-          done
-
-          if [ -z "$RENDER_PACKAGE" ]; then
-            echo "AndroidSVG render directory was not found in either app-private package." >&2
-            adb shell pm list packages | tr -d '\r' | grep 'environmentalsciences' || true
-            for CANDIDATE in "$PACKAGE" "$TEST_PACKAGE"; do
-              [ -n "$CANDIDATE" ] || continue
-              echo "Private-file diagnostic for $CANDIDATE" >&2
-              adb shell run-as "$CANDIDATE" find files -maxdepth 3 -type f 2>/dev/null | head -100 || true
-            done
-            exit 11
-          fi
-
-          echo "androidsvg_render_package=$RENDER_PACKAGE" | tee androidsvg-render-package.txt
-          REMOTE_FILES="$(adb shell run-as "$RENDER_PACKAGE" ls files/svg-androidsvg | tr -d '\r' | grep -E '[.]png$' | sort)"
-          test -n "$REMOTE_FILES"
-          while IFS= read -r NAME; do
-            [ -n "$NAME" ] || continue
-            REMOTE="files/svg-androidsvg/$NAME"
-            adb exec-out run-as "$RENDER_PACKAGE" cat "$REMOTE" > "qa-svg-androidsvg/$NAME"
-            test -s "qa-svg-androidsvg/$NAME"
-          done <<< "$REMOTE_FILES"
+          test -s qa-svg-androidsvg/result-manifest.txt
+          grep -Fx 'api=35' qa-svg-androidsvg/result-manifest.txt
+          grep -Fx 'package=edu.gascnagercoil.environmentalsciences' qa-svg-androidsvg/result-manifest.txt
+          grep -Fx 'expected=46' qa-svg-androidsvg/result-manifest.txt
+          grep -Fx 'rendered=46' qa-svg-androidsvg/result-manifest.txt
+          grep -Fx 'result=46/46' qa-svg-androidsvg/result-manifest.txt
 
           python - <<'PYPNG'
           from pathlib import Path
           files=sorted(Path("qa-svg-androidsvg").glob("*.png"))
-          assert files, "No AndroidSVG PNG renders were extracted"
+          assert len(files) == 46, len(files)
           sig=b"\x89PNG\r\n\x1a\n"
           bad=[p.name for p in files if not p.read_bytes().startswith(sig)]
           assert not bad, bad
@@ -2231,6 +2264,8 @@ jobs:
           echo "androidsvg_tamil_svg_expected=$EXPECTED" | tee androidsvg-emulator-status.txt
           echo "androidsvg_tamil_svg_rendered=$ACTUAL" | tee -a androidsvg-emulator-status.txt
           echo "androidsvg_tamil_svg_result=$ACTUAL/$EXPECTED" | tee -a androidsvg-emulator-status.txt
+          echo "androidsvg_emulator_api=$SDK_LEVEL" | tee -a androidsvg-emulator-status.txt
+          echo "androidsvg_external_pull=PASS" | tee -a androidsvg-emulator-status.txt
           echo "androidsvg_emulator_render=PASS" | tee -a androidsvg-emulator-status.txt
 
           if [ -n "${ENVSTUDIES_KEYSTORE_BASE64:-}" ] && \
@@ -2289,6 +2324,7 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/app/proguard-releaseqa-androidtest.pro
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-uncovered-runtime-classes.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/androidsvg-external-ls.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-instrumentation.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-logcat.txt
           if-no-files-found: warn

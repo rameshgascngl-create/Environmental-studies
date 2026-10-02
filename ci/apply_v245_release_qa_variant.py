@@ -6,6 +6,7 @@ import json
 GRADLE = Path("app/build.gradle.kts")
 QA_MANIFEST = Path("app/src/releaseQa/AndroidManifest.xml")
 QA_TEST = Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/ReleaseQaLessonEvidenceTest.kt")
+SVG_QA_TEST = Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/SvgAndroidSvgScreenshotTest.kt")
 QA_TEST_PROGUARD = Path("app/proguard-releaseqa-androidtest.pro")
 QA_TARGET_PROGUARD = Path("app/proguard-releaseqa-target.pro")
 QA_RUNTIME_KEEP_SOURCE = Path("../../ci/v245_releaseqa_runtime_keep.pro")
@@ -237,6 +238,94 @@ class ReleaseQaLessonEvidenceTest {
 }
 ''', encoding="utf-8")
 
+
+SVG_QA_TEST.write_text(r'''package edu.gascnagercoil.environmentalsciences.qa
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.os.Build
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.caverock.androidsvg.SVG
+import edu.gascnagercoil.environmentalsciences.R
+import java.io.File
+import java.io.FileOutputStream
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class SvgAndroidSvgScreenshotTest {
+    @Test
+    fun renderEveryTamilSvgThroughAndroidSvg() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val resources = context.resources
+        val out = requireNotNull(context.getExternalFilesDir("svg-androidsvg")) {
+            "External files directory unavailable for AndroidSVG evidence"
+        }.apply {
+            deleteRecursively()
+            assertTrue("Unable to create external AndroidSVG evidence directory", mkdirs() || isDirectory)
+        }
+
+        val candidates = R.raw::class.java.fields.mapNotNull { field ->
+            val name = field.name
+            if (!name.endsWith("_ta")) return@mapNotNull null
+            val resourceId = field.getInt(null)
+            val looksLikeSvg = resources.openRawResource(resourceId)
+                .bufferedReader(Charsets.UTF_8)
+                .use { it.readText().contains("<svg", ignoreCase = true) }
+            if (looksLikeSvg) name to resourceId else null
+        }.sortedBy { it.first }
+
+        val expected = 46
+        assertEquals("Every Tamil raw SVG must render", expected, candidates.size)
+
+        val rendered = mutableListOf<String>()
+        for ((name, resourceId) in candidates) {
+            val svg = resources.openRawResource(resourceId).use { SVG.getFromInputStream(it) }
+            val picture = svg.renderToPicture(1600, 1000)
+            assertTrue("AndroidSVG picture width is zero: $name", picture.width > 0)
+            assertTrue("AndroidSVG picture height is zero: $name", picture.height > 0)
+
+            val bitmap = Bitmap.createBitmap(
+                picture.width,
+                picture.height,
+                Bitmap.Config.ARGB_8888,
+            )
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.WHITE)
+            canvas.drawPicture(picture)
+
+            val png = File(out, "$name.png")
+            FileOutputStream(png).use { stream ->
+                assertTrue(
+                    "PNG compression failed: $name",
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream),
+                )
+            }
+            bitmap.recycle()
+
+            assertTrue("Empty AndroidSVG screenshot: $name", png.length() > 256L)
+            rendered += png.name
+        }
+
+        assertEquals("Every Tamil raw SVG must render", expected, rendered.size)
+        val manifest = listOf(
+            "api=${Build.VERSION.SDK_INT}",
+            "package=${context.packageName}",
+            "output=${out.absolutePath}",
+            "expected=$expected",
+            "rendered=${rendered.size}",
+            "result=${rendered.size}/$expected",
+        ) + rendered.map { "file=$it" }
+        File(out, "result-manifest.txt").writeText(manifest.joinToString("\n", postfix = "\n"))
+        assertTrue(File(out, "result-manifest.txt").length() > 0L)
+    }
+}
+''', encoding="utf-8")
+
 final_gradle = GRADLE.read_text(encoding="utf-8")
 assert final_gradle.count(production_guard) == 1
 AUDIT.write_text(json.dumps({
@@ -270,6 +359,8 @@ AUDIT.write_text(json.dumps({
     "gradleSha256Before": before_sha,
     "gradleSha256After": hashlib.sha256(final_gradle.encode()).hexdigest(),
     "evidenceTest": str(QA_TEST),
+    "androidSvgEvidenceTest": str(SVG_QA_TEST),
+    "androidSvgEvidenceOutput": "targetContext.getExternalFilesDir(\\\"svg-androidsvg\\\")",
     "manifestOverlay": str(QA_MANIFEST),
 }, indent=2) + "\n", encoding="utf-8")
 print(AUDIT.read_text(encoding="utf-8"))
