@@ -91,6 +91,7 @@ jobs:
               "ci/apply_v245_release_resource_keep.py",
               "ci/verify_v245_release_resource_integrity.py",
               "ci/apply_v245_privacy_url_lint.py",
+              "ci/apply_v245_release_qa_variant.py",
               "ci/audit_v245_release_parity.py",
               "ci/audit_v245_topic_parity.py",
               "ci/parity-allowlist.json",
@@ -1411,6 +1412,14 @@ jobs:
           python -m py_compile ../../ci/apply_v245_privacy_url_lint.py
           python ../../ci/apply_v245_privacy_url_lint.py
 
+      - name: Configure QA-only releaseQa device-evidence variant
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/apply_v245_release_qa_variant.py
+          python ../../ci/apply_v245_release_qa_variant.py
+
       - name: Audit per-lesson diagram-topic parity
         id: topic_parity
         continue-on-error: true
@@ -1601,19 +1610,39 @@ jobs:
           set -euo pipefail
           cd "$GITHUB_WORKSPACE/native-build/Environmental-Studies-v2.0.0-native"
 
-          # Build and install the app/test APKs explicitly instead of using
-          # connectedDebugAndroidTest. AGP uninstalls the target app after a
-          # connected test run, which made the subsequent run-as extraction
-          # fail even though the instrumentation test itself passed.
-          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest \
+          # releaseQa is a QA-only derivative of release: production
+          # applicationId, R8/minification and resource shrinking retained,
+          # but signed with the standard Android debug key and debuggable so
+          # instrumentation evidence can be extracted. It is never a
+          # production/store artefact.
+          gradle --no-daemon :app:assembleReleaseQa :app:assembleReleaseQaAndroidTest \
             -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
             --stacktrace
 
-          PACKAGE=edu.gascnagercoil.environmentalsciences.debug
-          APP_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          TEST_APK="$(find app/build/outputs/apk/androidTest/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          PACKAGE=edu.gascnagercoil.environmentalsciences
+          APP_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          TEST_APK="$(find app/build/outputs/apk/androidTest/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
           test -f "$APP_APK"
           test -f "$TEST_APK"
+          test -f app/build/outputs/mapping/releaseQa/mapping.txt
+
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APP_APK" | tee releaseqa-badging.txt
+          "$APKSIGNER" verify --print-certs "$APP_APK" | tee releaseqa-certificate.txt
+          grep -q "package: name='edu.gascnagercoil.environmentalsciences'" releaseqa-badging.txt
+          grep -Fq "QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION" releaseqa-badging.txt
+          grep -q 'CN=Android Debug' releaseqa-certificate.txt
+          {
+            echo "variant=releaseQa"
+            echo "label=QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION"
+            echo "applicationId=edu.gascnagercoil.environmentalsciences"
+            echo "minifyEnabled=true"
+            echo "shrinkResources=true"
+            echo "signing=ANDROID_DEBUG_KEY"
+            echo "distribution=PROHIBITED"
+          } | tee releaseqa-build-status.txt
+
           adb install -r "$APP_APK"
           adb install -r -t "$TEST_APK"
 
@@ -1632,23 +1661,49 @@ jobs:
             "$INSTRUMENTATION" | tee pdf-export-instrumentation.txt
           grep -Eq '^OK \([0-9]+ test' pdf-export-instrumentation.txt
 
-          adb shell pm list packages | tr -d '\r' | grep -Ei 'tts|speech' | tee tts-engine-packages.txt || true
-          if adb shell pm list packages | tr -d '\r' | grep -Fxq 'package:com.google.android.tts'; then
-            adb shell settings put secure tts_default_synth com.google.android.tts || true
-          fi
+          adb shell am instrument -w \
+            -e class edu.gascnagercoil.environmentalsciences.qa.ReleaseQaLessonEvidenceTest \
+            "$INSTRUMENTATION" | tee releaseqa-lesson-instrumentation.txt
+          grep -Eq '^OK \([0-9]+ test' releaseqa-lesson-instrumentation.txt
+          rm -rf qa-releaseqa-screens
+          mkdir -p qa-releaseqa-screens
+          for NAME in u2l1-en-fig005.png u2l5-en-fig013.png u4l6-en-fig038.png u5l1-en-fig046.png; do
+            adb exec-out run-as "$PACKAGE" cat "files/releaseqa-evidence/$NAME" > "qa-releaseqa-screens/$NAME"
+            test -s "qa-releaseqa-screens/$NAME"
+          done
+          adb exec-out run-as "$PACKAGE" cat files/releaseqa-evidence/status.txt > releaseqa-lesson-status.txt
+          grep -Fx 'variant=releaseQa' releaseqa-lesson-status.txt
+          grep -Fx 'label=QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION' releaseqa-lesson-status.txt
+          grep -Fx 'u2l1_fig005_visible=PASS' releaseqa-lesson-status.txt
+          grep -Fx 'u2l5_fig013_visible=PASS' releaseqa-lesson-status.txt
+          grep -Fx 'u4l6_fig038_visible=PASS' releaseqa-lesson-status.txt
+          grep -Fx 'u5l1_fig046_visible=PASS' releaseqa-lesson-status.txt
+
+          # Install a real open-source Android TTS engine on the emulator so
+          # English and Tamil are exercised rather than reported as NO_ENGINE.
+          ESPEAK_APK="$RUNNER_TEMP/com.reecedunn.espeak_22.apk"
+          curl -fL --retry 3 --retry-delay 2 \
+            https://f-droid.org/repo/com.reecedunn.espeak_22.apk \
+            -o "$ESPEAK_APK"
+          test -s "$ESPEAK_APK"
+          adb install -r "$ESPEAK_APK"
+          adb shell monkey -p com.reecedunn.espeak -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
+          sleep 4
+          adb shell settings put secure tts_default_synth com.reecedunn.espeak
+          adb shell pm list packages | tr -d '\r' | grep -Fx 'package:com.reecedunn.espeak'
+          adb shell settings get secure tts_default_synth | tr -d '\r' | grep -Fx 'com.reecedunn.espeak'
+          adb shell pm list packages | tr -d '\r' | grep -Ei 'tts|speech|espeak' | tee tts-engine-packages.txt
 
           adb shell am instrument -w \
             -e class edu.gascnagercoil.environmentalsciences.qa.TtsVisibilitySmokeTest \
             "$INSTRUMENTATION" | tee tts-instrumentation.txt
           grep -Eq '^OK \([0-9]+ test' tts-instrumentation.txt
           adb exec-out run-as "$PACKAGE" cat files/tts-qa/status.txt > tts-smoke-status.txt
-          if grep -Fxq 'tts_environment=ENGINE_PRESENT' tts-smoke-status.txt; then
-            grep -Fx 'tts_init=PASS' tts-smoke-status.txt
-            grep -Fx 'english_tts=PASS' tts-smoke-status.txt
-          else
-            grep -Fx 'tts_environment=NO_ENGINE_INSTALLED' tts-smoke-status.txt
-            grep -Fx 'physical_device_tts=REQUIRED' tts-smoke-status.txt
-          fi
+          grep -Fx 'tts_environment=ENGINE_PRESENT' tts-smoke-status.txt
+          grep -Fx 'tts_init=PASS' tts-smoke-status.txt
+          grep -Fx 'english_tts=PASS' tts-smoke-status.txt
+          grep -Fx 'tamil_voice_available=true' tts-smoke-status.txt
+          grep -Fx 'tamil_tts=PASS' tts-smoke-status.txt
 
           adb shell am instrument -w \
             -e class edu.gascnagercoil.environmentalsciences.qa.Fig038LessonScreenshotTest \
@@ -1792,6 +1847,26 @@ jobs:
           grep -Fx 'tamil_voice_available=true' tts-smoke-status.txt
           grep -Fx 'tamil_tts=PASS' tts-smoke-status.txt
 
+      - name: Upload releaseQa device evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-releaseQa-DEVICE-EVIDENCE
+          path: |
+            native-build/Environmental-Studies-v2.0.0-native/app/build/outputs/apk/releaseQa/
+            native-build/Environmental-Studies-v2.0.0-native/qa-releaseqa-screens/
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-build-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-badging.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-certificate.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/fig038-u4l6-screen.png
+            native-build/Environmental-Studies-v2.0.0-native/qa-pdf-export/
+            native-build/Environmental-Studies-v2.0.0-native/pdf-export-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/tts-smoke-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/tts-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/tts-engine-packages.txt
+          if-no-files-found: error
+
       - name: Upload AndroidSVG Tamil render evidence
         uses: actions/upload-artifact@v4
         with:
@@ -1912,8 +1987,10 @@ jobs:
           mkdir -p qa-artifact
           DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
           RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          RELEASE_QA_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
           cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.5-DEVICE-QA.apk
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
+          cp "$RELEASE_QA_APK" qa-artifact/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
           cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
           cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt qa-artifact/
           if [ -f release-certificate.txt ]; then cp release-certificate.txt qa-artifact/; fi
@@ -1943,6 +2020,8 @@ jobs:
           if [ -f tts-engine-packages.txt ]; then cp tts-engine-packages.txt qa-artifact/; fi
           if [ -f ../../privacy-url-status.txt ]; then cp ../../privacy-url-status.txt qa-artifact/; fi
           cp fig038-screen-instrumentation.txt fig038-screen-status.txt fig038-u4l6-screen.png qa-artifact/
+          cp releaseqa-build-status.txt releaseqa-badging.txt releaseqa-certificate.txt releaseqa-lesson-status.txt releaseqa-lesson-instrumentation.txt qa-artifact/
+          cp -R qa-releaseqa-screens qa-artifact/releaseqa-screens
           cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
           cp ../../FACTS_TO_VERIFY.md ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
           cp -R qa-svg-androidsvg qa-artifact/androidsvg-tamil-renders
