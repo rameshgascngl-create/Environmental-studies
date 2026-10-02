@@ -1297,15 +1297,32 @@ jobs:
           set -euo pipefail
           cd "$GITHUB_WORKSPACE/native-build/Environmental-Studies-v2.0.0-native"
 
-          gradle --no-daemon :app:connectedDebugAndroidTest \
+          # Build and install the app/test APKs explicitly instead of using
+          # connectedDebugAndroidTest. AGP uninstalls the target app after a
+          # connected test run, which made the subsequent run-as extraction
+          # fail even though the instrumentation test itself passed.
+          gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest \
             -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
-            -Pandroid.testInstrumentationRunnerArguments.class=edu.gascnagercoil.environmentalsciences.qa.SvgAndroidSvgScreenshotTest \
             --stacktrace
+
+          PACKAGE=edu.gascnagercoil.environmentalsciences.debug
+          APP_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          TEST_APK="$(find app/build/outputs/apk/androidTest/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -f "$APP_APK"
+          test -f "$TEST_APK"
+          adb install -r "$APP_APK"
+          adb install -r -t "$TEST_APK"
+
+          INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' | grep "(target=$PACKAGE)" | sed -n 's/^instrumentation:\([^ ]*\) .*/\1/p' | head -n1)"
+          test -n "$INSTRUMENTATION"
+          adb shell am instrument -w \
+            -e class edu.gascnagercoil.environmentalsciences.qa.SvgAndroidSvgScreenshotTest \
+            "$INSTRUMENTATION" | tee androidsvg-instrumentation.txt
+          grep -Eq '^OK \([0-9]+ test' androidsvg-instrumentation.txt
 
           rm -rf qa-svg-androidsvg
           mkdir -p qa-svg-androidsvg
 
-          PACKAGE=edu.gascnagercoil.environmentalsciences.debug
           adb shell run-as "$PACKAGE" sh -c 'test -d files/svg-androidsvg'
           REMOTE_FILES="$(adb shell run-as "$PACKAGE" sh -c 'ls files/svg-androidsvg/*.png' | tr -d '\r')"
           test -n "$REMOTE_FILES"
