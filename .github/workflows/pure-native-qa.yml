@@ -1407,6 +1407,15 @@ jobs:
             echo "Original production signing secrets are not configured on this runner; no replacement key was generated." | tee -a "$STATUS"
           fi
 
+      - name: Install PDF QA utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+          command -v pdffonts
+          command -v pdfinfo
+
       - name: Enable KVM for Android emulator
         shell: bash
         run: |
