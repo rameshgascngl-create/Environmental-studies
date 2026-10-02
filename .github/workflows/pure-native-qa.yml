@@ -5,6 +5,16 @@ on:
     branches:
       - release/v2.4.5-rc-20261001
   workflow_dispatch:
+    inputs:
+      releaseqa_mode:
+        description: "Run scope: full RC pipeline, releaseQa DEX audit only, or releaseQa instrumentation only"
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+          - dex_audit
+          - instrumentation
 
 permissions:
   contents: read
@@ -25,6 +35,7 @@ jobs:
       ENVSTUDIES_KEYSTORE_PASSWORD: ${{ secrets.ENVSTUDIES_KEYSTORE_PASSWORD }}
       ENVSTUDIES_KEY_ALIAS: ${{ secrets.ENVSTUDIES_KEY_ALIAS }}
       ENVSTUDIES_KEY_PASSWORD: ${{ secrets.ENVSTUDIES_KEY_PASSWORD }}
+      RELEASEQA_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.releaseqa_mode || (contains(github.event.head_commit.message, '[releaseqa-dex-audit]') && 'dex_audit' || contains(github.event.head_commit.message, '[releaseqa-instrumentation-only]') && 'instrumentation' || 'full') }}
 
     steps:
       - uses: actions/checkout@v4
@@ -1421,6 +1432,7 @@ jobs:
           python ../../ci/apply_v245_release_qa_variant.py
 
       - name: Audit per-lesson diagram-topic parity
+        if: env.RELEASEQA_MODE == 'full'
         id: topic_parity
         continue-on-error: true
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1444,7 +1456,79 @@ jobs:
         with:
           gradle-version: '8.13'
 
+      - name: ReleaseQa test-vs-app DEX namespace audit
+        if: env.RELEASEQA_MODE != 'full'
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "releaseqa_mode=$RELEASEQA_MODE"
+
+          gradle --no-daemon :app:assembleReleaseQa :app:assembleReleaseQaAndroidTest \
+            -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
+            --stacktrace
+
+          APP_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          TEST_APK="$(find app/build/outputs/apk/androidTest/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -f "$APP_APK"
+          test -f "$TEST_APK"
+
+          rm -rf releaseqa-app-dex releaseqa-test-dex
+          mkdir -p releaseqa-app-dex releaseqa-test-dex
+          unzip -q "$APP_APK" 'classes*.dex' -d releaseqa-app-dex
+          unzip -q "$TEST_APK" 'classes*.dex' -d releaseqa-test-dex
+          test -n "$(find releaseqa-app-dex -name 'classes*.dex' -print -quit)"
+          test -n "$(find releaseqa-test-dex -name 'classes*.dex' -print -quit)"
+
+          find releaseqa-app-dex -name 'classes*.dex' -type f -print0 \
+            | xargs -0 strings \
+            | grep -aoE 'L(kotlin|kotlinx|androidx/test)/[A-Za-z0-9_$/.-]+;' \
+            | sort -u > releaseqa-app-namespace-descriptors.txt || true
+
+          find releaseqa-test-dex -name 'classes*.dex' -type f -print0 \
+            | xargs -0 strings \
+            | grep -aoE 'L(kotlin|kotlinx|androidx/test)/[A-Za-z0-9_$/.-]+;' \
+            | sort -u > releaseqa-test-namespace-descriptors.txt || true
+
+          comm -23 releaseqa-test-namespace-descriptors.txt releaseqa-app-namespace-descriptors.txt \
+            > releaseqa-missing-runtime-descriptors.txt
+
+          python - <<'PYDEX'
+          from pathlib import Path
+          src=Path("releaseqa-missing-runtime-descriptors.txt")
+          classes=[]
+          for line in src.read_text().splitlines():
+              s=line.strip()
+              if not s:
+                  continue
+              assert s.startswith("L") and s.endswith(";"), s
+              classes.append(s[1:-1].replace("/", "."))
+          Path("releaseqa-missing-runtime-classes.txt").write_text(
+              "\n".join(classes) + ("\n" if classes else ""), encoding="utf-8"
+          )
+          Path("releaseqa-missing-runtime-keep-rules.pro").write_text(
+              "".join(f"-keep class {c} {{ *; }}\n" for c in classes), encoding="utf-8"
+          )
+          counts={
+              "test_namespace_descriptors": sum(1 for _ in Path("releaseqa-test-namespace-descriptors.txt").open()),
+              "app_namespace_descriptors": sum(1 for _ in Path("releaseqa-app-namespace-descriptors.txt").open()),
+              "missing_runtime_descriptors": len(classes),
+          }
+          Path("releaseqa-dex-audit-summary.txt").write_text(
+              "\n".join(f"{k}={v}" for k,v in counts.items())+"\n", encoding="utf-8"
+          )
+          print(Path("releaseqa-dex-audit-summary.txt").read_text(), end="")
+          print("FULL_MISSING_RUNTIME_CLASS_LIST_BEGIN")
+          print(Path("releaseqa-missing-runtime-classes.txt").read_text(), end="")
+          print("FULL_MISSING_RUNTIME_CLASS_LIST_END")
+          PYDEX
+
+          sha256sum "$APP_APK" "$TEST_APK" | tee releaseqa-apk-sha256.txt
+          sha256sum releaseqa-app-dex/classes*.dex | sort | tee releaseqa-app-dex-sha256.txt
+          sha256sum releaseqa-test-dex/classes*.dex | sort | tee releaseqa-test-dex-sha256.txt
+
       - name: Prove releaseQa target/test rules are isolated from production release
+        if: env.RELEASEQA_MODE != 'dex_audit'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1518,6 +1602,7 @@ jobs:
           } | tee v245-production-isolation-proof.txt
 
       - name: Verify v2.4.5 baseline-profile producer compiles
+        if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1529,6 +1614,7 @@ jobs:
           echo "baseline_profile_device_generation=requires_connected_device_and_installable_release" | tee -a baseline-profile-status.txt
 
       - name: Build v2.4.5 debug QA and exercise minified release pipeline
+        if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1565,6 +1651,7 @@ jobs:
           } | tee v245-size-dex-report.txt
 
       - name: release-resource-integrity
+        if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1623,6 +1710,7 @@ jobs:
           PYFIGREL
 
       - name: release-parity-integrity
+        if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1637,6 +1725,7 @@ jobs:
             --aapt "$AAPT"
 
       - name: Build signed release APK and AAB when original signing secrets are present
+        if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1663,6 +1752,7 @@ jobs:
           fi
 
       - name: Install PDF QA utilities
+        if: env.RELEASEQA_MODE != 'dex_audit'
         shell: bash
         run: |
           set -euo pipefail
@@ -1672,6 +1762,7 @@ jobs:
           command -v pdfinfo
 
       - name: Enable KVM for Android emulator
+        if: env.RELEASEQA_MODE != 'dex_audit'
         shell: bash
         run: |
           set -euo pipefail
@@ -1679,7 +1770,38 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm || true
 
+      - name: Verify complete releaseQa missing-class coverage
+        if: env.RELEASEQA_MODE == 'instrumentation'
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f releaseqa-missing-runtime-classes.txt
+          test -f app/proguard-releaseqa-target.pro
+          test -f app/proguard-releaseqa-androidtest.pro
+
+          python - <<'PYCOVER'
+          from pathlib import Path
+          missing=[x.strip() for x in Path("releaseqa-missing-runtime-classes.txt").read_text().splitlines() if x.strip()]
+          target=Path("app/proguard-releaseqa-target.pro").read_text()
+          test_rules=Path("app/proguard-releaseqa-androidtest.pro").read_text()
+          uncovered=[]
+          for cls in missing:
+              rule=f"-keep class {cls} {{ *; }}"
+              if rule not in target and rule not in test_rules:
+                  uncovered.append(cls)
+          Path("releaseqa-uncovered-runtime-classes.txt").write_text(
+              "\n".join(uncovered)+("\n" if uncovered else ""), encoding="utf-8"
+          )
+          if uncovered:
+              print("Uncovered releaseQa runtime descriptors remain after complete-pass rules:")
+              print("\n".join(uncovered))
+              raise SystemExit(23)
+          print(f"releaseqa_missing_class_coverage=PASS count={len(missing)}")
+          PYCOVER
+
       - name: Prepare AndroidSVG emulator QA script
+        if: env.RELEASEQA_MODE != 'dex_audit'
         shell: bash
         run: |
           set -euo pipefail
@@ -1933,6 +2055,7 @@ jobs:
           chmod 700 "$RUNNER_TEMP/v245-androidsvg-emulator.sh"
 
       - name: Render every Tamil SVG through AndroidSVG on emulator
+        if: env.RELEASEQA_MODE != 'dex_audit'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -1942,7 +2065,31 @@ jobs:
           disable-animations: false
           script: bash "$RUNNER_TEMP/v245-androidsvg-emulator.sh"
 
+      - name: Upload releaseQa DEX audit evidence
+        if: always() && env.RELEASEQA_MODE != 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-releaseQa-DEX-AUDIT-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-app-dex/
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-test-dex/
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-app-namespace-descriptors.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-test-namespace-descriptors.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-missing-runtime-descriptors.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-missing-runtime-classes.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-missing-runtime-keep-rules.pro
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-dex-audit-summary.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-apk-sha256.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-app-dex-sha256.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-test-dex-sha256.txt
+            native-build/Environmental-Studies-v2.0.0-native/app/proguard-releaseqa-target.pro
+            native-build/Environmental-Studies-v2.0.0-native/app/proguard-releaseqa-androidtest.pro
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-uncovered-runtime-classes.txt
+            native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
+          if-no-files-found: warn
+
       - name: Verify engine-present bilingual TTS result
+        if: env.RELEASEQA_MODE == 'full'
         id: tts_engine
         continue-on-error: true
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1957,6 +2104,7 @@ jobs:
           grep -Fx 'tamil_tts=PASS' tts-smoke-status.txt
 
       - name: Upload releaseQa device evidence
+        if: env.RELEASEQA_MODE == 'full'
         uses: actions/upload-artifact@v4
         with:
           name: Environmental-Studies-v2.4.5-releaseQa-DEVICE-EVIDENCE
@@ -1978,6 +2126,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload AndroidSVG Tamil render evidence
+        if: env.RELEASEQA_MODE == 'full'
         uses: actions/upload-artifact@v4
         with:
           name: Environmental-Studies-v2.4.5-Tamil-SVG-Renders
@@ -1989,6 +2138,7 @@ jobs:
           if-no-files-found: error
 
       - name: Inspect v2.4.5 package identity and offline contract
+        if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -2089,6 +2239,7 @@ jobs:
           } | tee qa-evidence-v245.txt
 
       - name: Prepare v2.4.5 QA artefact
+        if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -2157,12 +2308,14 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@v4
+        if: env.RELEASEQA_MODE == 'full'
         with:
           name: Environmental-Studies-v2.4.5-RELEASE-CANDIDATE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
 
       - name: Enforce final release-candidate gates
+        if: env.RELEASEQA_MODE == 'full'
         if: always()
         shell: bash
         run: |
