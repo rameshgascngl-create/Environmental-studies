@@ -1521,24 +1521,29 @@ jobs:
           resource_path=integrity["apk"]["resolvedResourcePaths"]["fig_038_u04_en"]
           with zipfile.ZipFile(apk) as z:
               payload=z.read(resource_path)
-          sha=hashlib.sha256(payload).hexdigest()
-          expected="994d1b3900cc01e80f5a649b704bca77133c16eb49868a01ec60451b0e5f6094"
-          assert sha==expected,(sha,expected)
-          im=Image.open(BytesIO(payload))
-          assert im.size==(1600,511),im.size
+          packaged_sha=hashlib.sha256(payload).hexdigest()
+          source=Path("app/src/main/res/drawable-nodpi/fig_038_u04_en.png")
+          source_sha=hashlib.sha256(source.read_bytes()).hexdigest()
+          expected_source="994d1b3900cc01e80f5a649b704bca77133c16eb49868a01ec60451b0e5f6094"
+          assert source_sha==expected_source,(source_sha,expected_source)
+          packaged=Image.open(BytesIO(payload)).convert("RGBA")
+          original=Image.open(source).convert("RGBA")
+          assert packaged.size==(1600,511),packaged.size
+          assert original.size==packaged.size
+          assert packaged.tobytes()==original.tobytes(), "AAPT changed fig_038 decoded pixels"
           Path("fig038-native-release.png").write_bytes(payload)
           report={
               "scope":"built unsigned R8 release APK native fig_038 verification",
               "resource":"fig_038_u04_en",
               "resolvedApkPath":resource_path,
-              "sha256":sha,
-              "expectedSha256":expected,
+              "packagedPngSha256":packaged_sha,
+              "approvedSourcePngSha256":source_sha,
+              "expectedApprovedSourceSha256":expected_source,
               "dimensions":[1600,511],
+              "decodedPixelsMatchApprovedSource":True,
               "nativeReleaseAssetCheck":"PASS",
-              "arrowRepairHashMatched":True,
-              "missingGlyphBoxSourceRepair":"PASS_BY_EXACT_APPROVED_HASH",
-              "releaseVariantInstalledLessonScreenCheck":"BLOCKED_UNSIGNED_RELEASE_NOT_INSTALLABLE_WITHOUT_PRODUCTION_SIGNING",
-              "debugLessonScreenEvidence":"collected separately by instrumentation; not accepted as release-variant proof"
+              "missingGlyphBoxSourceRepair":"PASS_BY_APPROVED_SOURCE_HASH_AND_PIXEL_EQUIVALENCE",
+              "releaseQaLessonScreenCheck":"PENDING_LATER_WORKFLOW_STEP"
           }
           Path("V245_FIG038_RELEASE_VERIFY.json").write_text(json.dumps(report,indent=2)+"\n")
           print(json.dumps(report,indent=2))
