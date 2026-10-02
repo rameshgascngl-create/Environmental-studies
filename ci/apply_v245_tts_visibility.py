@@ -17,6 +17,11 @@ present_before = any(
     node.get(ANDROID + "name") == ACTION
     for node in root_before.findall("./queries/intent/action")
 )
+permissions_before = sorted(
+    node.get(ANDROID + "name")
+    for node in root_before.findall("uses-permission")
+    if node.get(ANDROID + "name")
+)
 
 after = before
 if not present_before:
@@ -46,7 +51,13 @@ actions = [
     for node in root_after.findall("./queries/intent/action")
 ]
 assert ACTION in actions, actions
-assert not root_after.findall("uses-permission"), "TTS visibility must not add permissions"
+permissions_after = sorted(
+    node.get(ANDROID + "name")
+    for node in root_after.findall("uses-permission")
+    if node.get(ANDROID + "name")
+)
+assert permissions_after == permissions_before, (permissions_before, permissions_after)
+assert "android.permission.INTERNET" not in permissions_after
 
 narration = Path(
     "app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/AnimationNarration.kt"
@@ -152,6 +163,9 @@ AUDIT.write_text(
             "manifest_sha256_after": hashlib.sha256(after_bytes).hexdigest(),
             "tts_query_present_before": present_before,
             "tts_query_present_after": True,
+            "permissions_before": permissions_before,
+            "permissions_after": permissions_after,
+            "permissions_changed": False,
             "internet_permission_added": False,
             "tts_smoke_test": str(TEST),
             "missing_tamil_voice_fallback_static_check": True,
