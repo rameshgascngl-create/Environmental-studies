@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release/v2.4.5-rc-20261001
+      - audit/v2.4.5-tts-visibility-20261002
   workflow_dispatch:
 
 permissions:
@@ -85,6 +86,7 @@ jobs:
               "ci/apply_v245_item4_quiz_punctuation.py",
               "ci/apply_v245_item5_figure_robustness.py",
               "ci/apply_v245_item6_pdf_export.py",
+              "ci/audit_v245_tts_visibility_probe.py",
               ".github/workflows/pages-privacy.yml",
               "site/privacy-policy.html",
               "FACTS_TO_VERIFY.md",
@@ -1326,6 +1328,14 @@ jobs:
           python -m py_compile ../../ci/apply_v245_item6_pdf_export.py
           python ../../ci/apply_v245_item6_pdf_export.py
 
+      - name: Prepare TTS visibility verification probe
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/audit_v245_tts_visibility_probe.py
+          python ../../ci/audit_v245_tts_visibility_probe.py
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -1476,6 +1486,23 @@ jobs:
           echo "pdf_export_english_figure=PASS" | tee pdf-export-status.txt
           echo "pdf_export_tamil_svg=PASS" | tee -a pdf-export-status.txt
           echo "pdf_export_tamil_font=Noto Sans Tamil" | tee -a pdf-export-status.txt
+
+          adb shell am instrument -w \
+            -e class edu.gascnagercoil.environmentalsciences.qa.TtsVisibilityProbeTest \
+            "$INSTRUMENTATION" | tee tts-visibility-instrumentation.txt
+          grep -Eq '^OK \([0-9]+ test' tts-visibility-instrumentation.txt
+
+          TTS_PACKAGE=""
+          for CANDIDATE in "$PACKAGE" "$TEST_PACKAGE"; do
+            [ -n "$CANDIDATE" ] || continue
+            if adb shell run-as "$CANDIDATE" test -f files/tts-qa/tts-visibility.json; then
+              TTS_PACKAGE="$CANDIDATE"
+              break
+            fi
+          done
+          test -n "$TTS_PACKAGE"
+          adb exec-out run-as "$TTS_PACKAGE" cat files/tts-qa/tts-visibility.json > tts-visibility.json
+          cat tts-visibility.json
 
           rm -rf qa-svg-androidsvg
           mkdir -p qa-svg-androidsvg
