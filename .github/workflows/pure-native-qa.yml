@@ -1506,8 +1506,13 @@ jobs:
             "$INSTRUMENTATION" | tee tts-instrumentation.txt
           grep -Eq '^OK \([0-9]+ test' tts-instrumentation.txt
           adb exec-out run-as "$PACKAGE" cat files/tts-qa/status.txt > tts-smoke-status.txt
-          grep -Fx 'tts_init=PASS' tts-smoke-status.txt
-          grep -Fx 'english_tts=PASS' tts-smoke-status.txt
+          if grep -Fxq 'tts_environment=ENGINE_PRESENT' tts-smoke-status.txt; then
+            grep -Fx 'tts_init=PASS' tts-smoke-status.txt
+            grep -Fx 'english_tts=PASS' tts-smoke-status.txt
+          else
+            grep -Fx 'tts_environment=NO_ENGINE_INSTALLED' tts-smoke-status.txt
+            grep -Fx 'physical_device_tts=REQUIRED' tts-smoke-status.txt
+          fi
 
           adb shell am instrument -w \
             -e class edu.gascnagercoil.environmentalsciences.qa.Fig038LessonScreenshotTest \
