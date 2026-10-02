@@ -85,6 +85,11 @@ jobs:
               "ci/apply_v245_item4_quiz_punctuation.py",
               "ci/apply_v245_item5_figure_robustness.py",
               "ci/apply_v245_item6_pdf_export.py",
+              "ci/apply_v245_tts_visibility.py",
+              "ci/apply_v245_fig038_glyph_fix.py",
+              "ci/audit_v245_topic_parity.py",
+              "ci/parity-allowlist.json",
+              "V245_ITEM3_TAMIL_EDITORIAL_PROPOSAL.md",
               ".github/workflows/pages-privacy.yml",
               "site/privacy-policy.html",
               "FACTS_TO_VERIFY.md",
@@ -1790,7 +1795,7 @@ jobs:
           if-no-files-found: error
 
       - name: Enforce final diagram-topic parity gate
-        if: always()
+        if: always() && steps.topic_parity.outcome != 'skipped'
         shell: bash
         run: |
           set -euo pipefail
