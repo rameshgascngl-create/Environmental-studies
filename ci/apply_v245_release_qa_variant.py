@@ -53,6 +53,13 @@ assert 'applicationIdSuffix' not in qa_section
 assert 'isMinifyEnabled = true' in qa_section
 assert 'isShrinkResources = true' in qa_section
 assert 'signingConfig = signingConfigs.getByName("debug")' in qa_section
+dependency_anchor = '    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n'
+assert after.count(dependency_anchor) == 1
+after = after.replace(
+    dependency_anchor,
+    dependency_anchor + '    androidTestImplementation("com.google.errorprone:error_prone_annotations:2.36.0")\n',
+    1,
+)
 GRADLE.write_text(after, encoding="utf-8")
 
 QA_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
@@ -206,6 +213,7 @@ AUDIT.write_text(json.dumps({
     "replacementProductionKeyGenerated": False,
     "distributionAllowed": False,
     "testBuildType": "releaseQa",
+    "androidTestR8SupportDependency": "com.google.errorprone:error_prone_annotations:2.36.0",
     "gradleSha256Before": before_sha,
     "gradleSha256After": hashlib.sha256(final_gradle.encode()).hexdigest(),
     "evidenceTest": str(QA_TEST),
