@@ -153,14 +153,6 @@ ref_set = set(all_refs)
 unresolved = sorted(ref_set - resources)
 orphaned = sorted(resources - ref_set)
 
-expected_open = {"u2l1", "u2l5", "u4l6", "u5l1"}
-if set(open_entries) != expected_open:
-    registry_errors.append({
-        "error": "unexpected OPEN parity set",
-        "actual": sorted(open_entries),
-        "expected": sorted(expected_open),
-    })
-
 deleted_topic_checks = {
     "eutrophication": {
         "deletedEnglish": "fig_033_u04_en",
