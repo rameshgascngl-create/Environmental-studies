@@ -1,21 +1,129 @@
 {
+  "u1l1": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Environmental problems are interdisciplinary",
+        "english": [
+          "fig_001_u01_en"
+        ],
+        "tamil": [
+          "sci_u01_l11_components_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u1l2": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Earth as an interacting life-support system",
+        "english": [
+          "fig_003_u01_en"
+        ],
+        "tamil": [
+          "sci_u01_l12_spheres_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u1l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Population, consumption and environmental pressure",
+        "english": [
+          "sci_u01_l13_en"
+        ],
+        "tamil": [
+          "sci_u01_l13_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u1l4": {
+    "status": "BALANCED",
+    "reason": "No teaching diagram in either language.",
+    "matchedTopics": [],
+    "openTopics": []
+  },
   "u2l1": {
     "status": "OPEN",
     "reason": "English has one additional ecosystem energy/nutrient overview diagram; a reviewed Tamil counterpart or explicit consolidation decision is still required.",
     "matchedTopics": [
       {
         "topic": "energy flow and nutrient cycling",
-        "english": ["fig_006_u02_en"],
-        "tamil": ["sci_u02_l21_ecosystem_ta"]
+        "english": [
+          "fig_006_u02_en"
+        ],
+        "tamil": [
+          "sci_u02_l21_ecosystem_ta"
+        ]
       }
     ],
     "openTopics": [
       {
         "topic": "ecosystem energy entry and nutrient recycling overview",
-        "english": ["fig_005_u02_en"],
+        "english": [
+          "fig_005_u02_en"
+        ],
         "tamil": []
       }
     ]
+  },
+  "u2l2": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Why energy pyramids narrow upward",
+        "english": [
+          "fig_008_u02_en"
+        ],
+        "tamil": [
+          "sci_u02_l22_trophic_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u2l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Carbon cycle among the atmosphere, organisms, oceans, soil and rocks",
+        "english": [
+          "fig_010_u02_en"
+        ],
+        "tamil": [
+          "sci_u02_l23_carbon_cycle_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u2l4": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Vegetation protects soil and supports water regulation",
+        "english": [
+          "fig_011_u02_en"
+        ],
+        "tamil": [
+          "sci_u02_l24_soil_forest_ta"
+        ]
+      }
+    ],
+    "openTopics": []
   },
   "u2l5": {
     "status": "OPEN",
@@ -23,22 +131,235 @@
     "matchedTopics": [
       {
         "topic": "water cycle",
-        "english": ["fig_013_u02_en"],
-        "tamil": ["sci_u02_l25_watercycle_ta"]
+        "english": [
+          "fig_013_u02_en"
+        ],
+        "tamil": [
+          "sci_u02_l25_watercycle_ta"
+        ]
       },
       {
         "topic": "watershed and groundwater recharge",
-        "english": ["fig_015_u02_en"],
-        "tamil": ["sci_u02_l25_recharge_ta"]
+        "english": [
+          "fig_015_u02_en"
+        ],
+        "tamil": [
+          "sci_u02_l25_recharge_ta"
+        ]
       }
     ],
     "openTopics": [
       {
         "topic": "rainfall partition into runoff infiltration and recharge",
-        "english": ["fig_014_u02_en"],
+        "english": [
+          "fig_014_u02_en"
+        ],
         "tamil": []
       }
     ]
+  },
+  "u2l6": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Resource types and resource efficiency",
+        "english": [
+          "sci_u02_l26_en"
+        ],
+        "tamil": [
+          "sci_u02_l26_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u3l1": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Biodiversity has three nested levels",
+        "english": [
+          "fig_018_u03_en"
+        ],
+        "tamil": [
+          "sci_u03_l31_levels_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u3l2": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Major direct drivers of biodiversity loss",
+        "english": [
+          "sci_u03_l32_en"
+        ],
+        "tamil": [
+          "sci_u03_l32_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u3l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "India's biodiversity reflects its extraordinary habitat diversity",
+        "english": [
+          "fig_020_u03_en"
+        ],
+        "tamil": [
+          "sci_u03_l33_india_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u3l4": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Two complementary conservation strategies",
+        "english": [
+          "fig_022_u03_en"
+        ],
+        "tamil": [
+          "sci_u03_l34_conservation_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u3l5": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Connectivity can reduce wildlife isolation",
+        "english": [
+          "fig_024_u03_en"
+        ],
+        "tamil": [
+          "sci_u03_l35_corridor_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u4l1": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "From pollutant source to effect",
+        "english": [
+          "fig_026_u04_en"
+        ],
+        "tamil": [
+          "sci_u04_l41_pollution_pathway_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u4l2": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Emission is not the same as exposure",
+        "english": [
+          "fig_028_u04_en"
+        ],
+        "tamil": [
+          "sci_u04_l42_emission_exposure_ta"
+        ]
+      },
+      {
+        "topic": "Urban air pollution is a mixture from many sources",
+        "english": [
+          "fig_029_u04_en"
+        ],
+        "tamil": [
+          "sci_u04_l42_urban_mix_ta"
+        ]
+      },
+      {
+        "topic": "Selected CPCB National Ambient Air Quality Standards 2009 reference values",
+        "english": [
+          "sci_u04_l42_naaqs_en"
+        ],
+        "tamil": [
+          "sci_u04_l42_naaqs_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u4l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "How eutrophication develops",
+        "english": [
+          "fig_034_u04_en"
+        ],
+        "tamil": [
+          "sci_u04_l43_eutrophication_ta"
+        ]
+      },
+      {
+        "topic": "Eutrophication changes an aquatic ecosystem",
+        "english": [
+          "fig_035_u04_en"
+        ],
+        "tamil": [
+          "sci_u04_l43_lake_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u4l4": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "How soil contamination reaches organisms and water",
+        "english": [
+          "sci_u04_l44_en"
+        ],
+        "tamil": [
+          "sci_u04_l44_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u4l5": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "From noise source to health effect",
+        "english": [
+          "sci_u04_l45_en"
+        ],
+        "tamil": [
+          "sci_u04_l45_ta"
+        ]
+      }
+    ],
+    "openTopics": []
   },
   "u4l6": {
     "status": "OPEN",
@@ -46,22 +367,64 @@
     "matchedTopics": [
       {
         "topic": "waste hierarchy",
-        "english": ["fig_039_u04_en"],
-        "tamil": ["sci_u04_l46_hierarchy_ta"]
+        "english": [
+          "fig_039_u04_en"
+        ],
+        "tamil": [
+          "sci_u04_l46_hierarchy_ta"
+        ]
       },
       {
         "topic": "source segregation and sorting",
-        "english": ["fig_040_u04_en"],
-        "tamil": ["sci_u04_l46_sorting_ta"]
+        "english": [
+          "fig_040_u04_en"
+        ],
+        "tamil": [
+          "sci_u04_l46_sorting_ta"
+        ]
       }
     ],
     "openTopics": [
       {
         "topic": "simplified waste hierarchy prevention to disposal",
-        "english": ["fig_038_u04_en"],
+        "english": [
+          "fig_038_u04_en"
+        ],
         "tamil": []
       }
     ]
+  },
+  "u4l7": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Different waste streams need different handling",
+        "english": [
+          "sci_u04_l47_en"
+        ],
+        "tamil": [
+          "sci_u04_l47_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u4l8": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Hazard ≠ exposure ≠ risk",
+        "english": [
+          "fig_043_u04_en"
+        ],
+        "tamil": [
+          "sci_u04_l48_hazard_exposure_risk_ta"
+        ]
+      }
+    ],
+    "openTopics": []
   },
   "u5l1": {
     "status": "OPEN",
@@ -69,16 +432,334 @@
     "matchedTopics": [
       {
         "topic": "greenhouse effect infrared absorption and re-emission",
-        "english": ["sci_u05_l51_en"],
-        "tamil": ["sci_u05_l51_ta"]
+        "english": [
+          "sci_u05_l51_en"
+        ],
+        "tamil": [
+          "sci_u05_l51_ta"
+        ]
       }
     ],
     "openTopics": [
       {
         "topic": "simplified greenhouse effect",
-        "english": ["fig_046_u05_en"],
+        "english": [
+          "fig_046_u05_en"
+        ],
         "tamil": []
       }
     ]
+  },
+  "u5l2": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Climate change: evidence and impact pathways",
+        "english": [
+          "sci_u05_l52_en"
+        ],
+        "tamil": [
+          "sci_u05_l52_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u5l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Mitigation and adaptation solve different parts of the climate problem",
+        "english": [
+          "fig_049_u05_en"
+        ],
+        "tamil": [
+          "sci_u05_l53_mitigation_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u5l4": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Ozone depletion and acid deposition are different processes",
+        "english": [
+          "sci_u05_l54_en"
+        ],
+        "tamil": [
+          "sci_u05_l54_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u6l1": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Energy efficiency reduces input for the same service",
+        "english": [
+          "sci_u06_l61_en"
+        ],
+        "tamil": [
+          "sci_u06_l61_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u6l2": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Sustainable agriculture works with ecological processes",
+        "english": [
+          "fig_051_u06_en"
+        ],
+        "tamil": [
+          "sci_u06_l62_agriculture_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u6l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "A hierarchy for sustainable water use",
+        "english": [
+          "sci_u06_l63_en"
+        ],
+        "tamil": [
+          "sci_u06_l63_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u6l4": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Circular economy keeps products useful for longer",
+        "english": [
+          "fig_053_u06_en"
+        ],
+        "tamil": [
+          "sci_u06_l64_circular_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u6l5": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "A campus is a connected environmental system",
+        "english": [
+          "sci_u06_l65_en"
+        ],
+        "tamil": [
+          "sci_u06_l65_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u7l1": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Environmental management is an adaptive cycle",
+        "english": [
+          "sci_u07_l71_en"
+        ],
+        "tamil": [
+          "sci_u07_l71_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u7l2": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "EIA is a preventive decision process",
+        "english": [
+          "fig_055_u07_en"
+        ],
+        "tamil": [
+          "sci_u07_l72_eia_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u7l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Disaster risk is created by overlap",
+        "english": [
+          "fig_058_u07_en"
+        ],
+        "tamil": [
+          "sci_u07_l73_risk_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u7l4": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Nature-based solutions add ecological function to cities",
+        "english": [
+          "fig_060_u07_en"
+        ],
+        "tamil": [
+          "sci_u07_l74_urban_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u8l1": {
+    "status": "BALANCED",
+    "reason": "No teaching diagram in either language.",
+    "matchedTopics": [],
+    "openTopics": []
+  },
+  "u8l2": {
+    "status": "BALANCED",
+    "reason": "No teaching diagram in either language.",
+    "matchedTopics": [],
+    "openTopics": []
+  },
+  "u8l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Selected milestones in international environmental cooperation",
+        "english": [
+          "sci_u08_l83_en"
+        ],
+        "tamil": [
+          "sci_u08_l83_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u8l4": {
+    "status": "BALANCED",
+    "reason": "No teaching diagram in either language.",
+    "matchedTopics": [],
+    "openTopics": []
+  },
+  "u9l1": {
+    "status": "BALANCED",
+    "reason": "No teaching diagram in either language.",
+    "matchedTopics": [],
+    "openTopics": []
+  },
+  "u9l2": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "A campus can become a living biodiversity laboratory",
+        "english": [
+          "fig_062_u09_en"
+        ],
+        "tamil": [
+          "sci_u09_l92_biodiversity_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u9l3": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Campus waste audit workflow",
+        "english": [
+          "sci_u09_l93_en"
+        ],
+        "tamil": [
+          "sci_u09_l93_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u9l4": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "Water-use and rainwater observation workflow",
+        "english": [
+          "sci_u09_l94_en"
+        ],
+        "tamil": [
+          "sci_u09_l94_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u9l5": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "A repeatable local environmental observation",
+        "english": [
+          "sci_u09_l95_en"
+        ],
+        "tamil": [
+          "sci_u09_l95_ta"
+        ]
+      }
+    ],
+    "openTopics": []
+  },
+  "u9l6": {
+    "status": "BALANCED",
+    "reason": "Explicitly reviewed English/Tamil diagram-topic pairing.",
+    "matchedTopics": [
+      {
+        "topic": "From campus evidence to action",
+        "english": [
+          "sci_u09_l96_en"
+        ],
+        "tamil": [
+          "sci_u09_l96_ta"
+        ]
+      }
+    ],
+    "openTopics": []
   }
 }
