@@ -1442,6 +1442,7 @@ jobs:
 
           INSTRUMENTATION="$(adb shell pm list instrumentation | tr -d '\r' | grep "(target=$PACKAGE)" | sed -n 's/^instrumentation:\([^ ]*\) .*/\1/p' | head -n1)"
           test -n "$INSTRUMENTATION"
+          TEST_PACKAGE="${INSTRUMENTATION%%/*}"
           adb shell am instrument -w \
             -e class edu.gascnagercoil.environmentalsciences.qa.SvgAndroidSvgScreenshotTest \
             "$INSTRUMENTATION" | tee androidsvg-instrumentation.txt
@@ -1483,7 +1484,6 @@ jobs:
           # The screenshot harness can write via either targetContext or the
           # instrumentation context. Detect the actual owner instead of
           # assuming the target package owns files/svg-androidsvg.
-          TEST_PACKAGE="${INSTRUMENTATION%%/*}"
           echo "androidsvg_target_package=$PACKAGE"
           echo "androidsvg_test_package=$TEST_PACKAGE"
 
