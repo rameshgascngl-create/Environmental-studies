@@ -8,6 +8,7 @@ QA_MANIFEST = Path("app/src/releaseQa/AndroidManifest.xml")
 QA_TEST = Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/ReleaseQaLessonEvidenceTest.kt")
 QA_TEST_PROGUARD = Path("app/proguard-releaseqa-androidtest.pro")
 QA_TARGET_PROGUARD = Path("app/proguard-releaseqa-target.pro")
+QA_RUNTIME_KEEP_SOURCE = Path("../../ci/v245_releaseqa_runtime_keep.pro")
 AUDIT = Path("V245_RELEASE_QA_VARIANT_AUDIT.json")
 LABEL = "QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION"
 
@@ -70,15 +71,28 @@ after = after.replace(
 )
 GRADLE.write_text(after, encoding="utf-8")
 
-QA_TARGET_PROGUARD.write_text("""# QA-only releaseQa target R8 rules.
-# AndroidX Test resolves these Kotlin lazy classes through the target/app classloader
-# after AndroidTest dependency subtraction. Keep only the exact runtime classes needed.
--keep class kotlin.LazyKt { *; }
--keep class kotlin.LazyKt__LazyJVMKt { *; }
--keep class kotlin.LazyKt__LazyKt { *; }
-""", encoding="utf-8")
+exact_runtime_rules = QA_RUNTIME_KEEP_SOURCE.read_text(encoding="utf-8")
+assert "-keep class kotlin.LazyKt { *; }" in exact_runtime_rules
+assert "-keep class kotlin.io.FilesKt { *; }" in exact_runtime_rules
+assert "-keep class androidx.test.platform.app.InstrumentationRegistry { *; }" in exact_runtime_rules
+assert "-keep class kotlinx.coroutines.test.TestCoroutineScheduler { *; }" in exact_runtime_rules
+assert "-keep class kotlin.**" not in exact_runtime_rules
+assert "-keep class kotlinx.**" not in exact_runtime_rules
+assert "-keep class androidx.test.**" not in exact_runtime_rules
 
-QA_TEST_PROGUARD.write_text("""# QA-only AndroidTest R8 rules.\n# error_prone_annotations references JDK compiler model types that are not present on Android.\n-dontwarn javax.lang.model.element.**\n# Keep only the Kotlin lazy façade/implementation classes required by the releaseQa instrumentation runtime.\n-keep class kotlin.LazyKt { *; }\n-keep class kotlin.LazyKt__LazyJVMKt { *; }\n-keep class kotlin.LazyKt__LazyKt { *; }\n""", encoding="utf-8")
+QA_TARGET_PROGUARD.write_text(
+    "# QA-only releaseQa target R8 rules. Production release does not consume this file.\n"
+    + exact_runtime_rules,
+    encoding="utf-8",
+)
+
+QA_TEST_PROGUARD.write_text(
+    "# QA-only AndroidTest R8 rules.\n"
+    "# error_prone_annotations references JDK compiler model types that are not present on Android.\n"
+    "-dontwarn javax.lang.model.element.**\n"
+    + exact_runtime_rules,
+    encoding="utf-8",
+)
 
 QA_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
 QA_MANIFEST.write_text(f'''<?xml version="1.0" encoding="utf-8"?>
@@ -234,18 +248,18 @@ AUDIT.write_text(json.dumps({
     "androidTestR8SupportDependency": "com.google.errorprone:error_prone_annotations:2.36.0",
     "androidTestKotlinStdlibDependency": "kotlin(\\\"stdlib\\\")",
     "releaseQaTargetR8Rules": str(QA_TARGET_PROGUARD),
-    "releaseQaTargetR8KotlinKeepClasses": [
-        "kotlin.LazyKt",
-        "kotlin.LazyKt__LazyJVMKt",
-        "kotlin.LazyKt__LazyKt",
-    ],
+    "releaseQaExactRuntimeKeepSource": str(QA_RUNTIME_KEEP_SOURCE),
+    "releaseQaExactRuntimeKeepRuleCount": sum(
+        1 for line in exact_runtime_rules.splitlines() if line.startswith("-keep class ")
+    ),
+    "releaseQaRun199MissingClassCount": 1365,
+    "releaseQaRun199MissingClassNamespaces": {
+        "androidx.test": 1234,
+        "kotlin": 25,
+        "kotlinx": 106,
+    },
     "androidTestR8Rules": str(QA_TEST_PROGUARD),
     "androidTestR8DontWarn": "javax.lang.model.element.**",
-    "androidTestR8KotlinKeepClasses": [
-        "kotlin.LazyKt",
-        "kotlin.LazyKt__LazyJVMKt",
-        "kotlin.LazyKt__LazyKt",
-    ],
     "productionKotlinKeepWildcardAdded": False,
     "gradleSha256Before": before_sha,
     "gradleSha256After": hashlib.sha256(final_gradle.encode()).hexdigest(),

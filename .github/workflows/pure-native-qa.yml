@@ -103,6 +103,7 @@ jobs:
               "ci/verify_v245_release_resource_integrity.py",
               "ci/apply_v245_privacy_url_lint.py",
               "ci/apply_v245_release_qa_variant.py",
+              "ci/v245_releaseqa_runtime_keep.pro",
               "ci/audit_v245_release_parity.py",
               "ci/audit_v245_topic_parity.py",
               "ci/parity-allowlist.json",
@@ -1593,6 +1594,7 @@ jobs:
             echo "qa_target_rule_scope=releaseQa-target-only"
             echo "qa_test_rule_scope=releaseQa-AndroidTest-only"
             echo "qa_test_dependency_scope=androidTestImplementation-only"
+            echo "releaseqa_exact_runtime_keep_sha256=$(sha256sum ../../ci/v245_releaseqa_runtime_keep.pro | awk '{print $1}')"
             echo "before_dex_sha256:"
             cat "$RUNNER_TEMP/production-before-dex.sha256"
             echo "after_dex_sha256:"
@@ -1779,25 +1781,27 @@ jobs:
           test -f releaseqa-missing-runtime-classes.txt
           test -f app/proguard-releaseqa-target.pro
           test -f app/proguard-releaseqa-androidtest.pro
+          test -f ../../ci/v245_releaseqa_runtime_keep.pro
 
           python - <<'PYCOVER'
           from pathlib import Path
           missing=[x.strip() for x in Path("releaseqa-missing-runtime-classes.txt").read_text().splitlines() if x.strip()]
           target=Path("app/proguard-releaseqa-target.pro").read_text()
           test_rules=Path("app/proguard-releaseqa-androidtest.pro").read_text()
+          baseline=Path("../../ci/v245_releaseqa_runtime_keep.pro").read_text()
           uncovered=[]
           for cls in missing:
               rule=f"-keep class {cls} {{ *; }}"
-              if rule not in target and rule not in test_rules:
+              if rule not in target or rule not in test_rules or rule not in baseline:
                   uncovered.append(cls)
           Path("releaseqa-uncovered-runtime-classes.txt").write_text(
               "\n".join(uncovered)+("\n" if uncovered else ""), encoding="utf-8"
           )
           if uncovered:
-              print("Uncovered releaseQa runtime descriptors remain after complete-pass rules:")
+              print("STOP: classes outside the complete Run #199 pass remain. Full list:")
               print("\n".join(uncovered))
               raise SystemExit(23)
-          print(f"releaseqa_missing_class_coverage=PASS count={len(missing)}")
+          print(f"releaseqa_missing_class_coverage=PASS current_missing={len(missing)}")
           PYCOVER
 
       - name: Prepare AndroidSVG emulator QA script
