@@ -1933,6 +1933,7 @@ jobs:
           if-no-files-found: error
 
       - name: Build signed release APK and AAB when original signing secrets are present
+        id: signed_release
         if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -1948,16 +1949,50 @@ jobs:
             chmod 600 "$KEYSTORE"
             ENVSTUDIES_KEYSTORE_PATH="$KEYSTORE" gradle --no-daemon :app:assembleRelease :app:bundleRelease -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
             SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+            SIGNED_AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
             test -f "$SIGNED_APK"
+            test -f "$SIGNED_AAB"
             APKSIGNER="$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner"
             "$APKSIGNER" verify --print-certs "$SIGNED_APK" | tee release-certificate.txt
             grep -q 'Signer #1 certificate SHA-256 digest:' release-certificate.txt
+
+            rm -rf signed-release-artifacts
+            mkdir -p signed-release-artifacts
+            cp "$SIGNED_APK" signed-release-artifacts/Environmental-Studies-v2.4.5-RELEASE.apk
+            cp "$SIGNED_AAB" signed-release-artifacts/Environmental-Studies-v2.4.5-RELEASE.aab
+            cp release-certificate.txt signed-release-artifacts/release-certificate.txt
+            sha256sum               signed-release-artifacts/Environmental-Studies-v2.4.5-RELEASE.apk               signed-release-artifacts/Environmental-Studies-v2.4.5-RELEASE.aab               | tee signed-release-artifacts/SHA256SUMS.txt
+
             echo "signed_release_available=true" | tee "$STATUS"
+            echo "available=true" >> "$GITHUB_OUTPUT"
           else
             echo "signed_release_available=false" | tee "$STATUS"
             echo "SIGNED RELEASE BLOCKED: ORIGINAL SIGNING CREDENTIALS REQUIRED" | tee -a "$STATUS"
             echo "Original production signing secrets are not configured on this runner; no replacement key was generated." | tee -a "$STATUS"
+            echo "available=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Upload signed production APK before emulator
+        if: steps.signed_release.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-SIGNED-PRODUCTION-APK-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            native-build/Environmental-Studies-v2.0.0-native/signed-release-artifacts/Environmental-Studies-v2.4.5-RELEASE.apk
+            native-build/Environmental-Studies-v2.0.0-native/signed-release-artifacts/release-certificate.txt
+            native-build/Environmental-Studies-v2.0.0-native/signed-release-artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Upload signed production AAB before emulator
+        if: steps.signed_release.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-SIGNED-PRODUCTION-AAB-${{ github.run_number }}-${{ github.run_attempt }}
+          path: |
+            native-build/Environmental-Studies-v2.0.0-native/signed-release-artifacts/Environmental-Studies-v2.4.5-RELEASE.aab
+            native-build/Environmental-Studies-v2.0.0-native/signed-release-artifacts/release-certificate.txt
+            native-build/Environmental-Studies-v2.0.0-native/signed-release-artifacts/SHA256SUMS.txt
+          if-no-files-found: error
 
       - name: Install PDF QA utilities
         if: env.RELEASEQA_MODE != 'dex_audit'
