@@ -87,6 +87,7 @@ jobs:
               "ci/apply_v245_item6_pdf_export.py",
               "ci/apply_v245_tts_visibility.py",
               "ci/apply_v245_fig038_glyph_fix.py",
+              "ci/apply_v245_privacy_url_lint.py",
               "ci/audit_v245_topic_parity.py",
               "ci/parity-allowlist.json",
               "V245_ITEM3_TAMIL_EDITORIAL_PROPOSAL.md",
@@ -1276,14 +1277,24 @@ jobs:
           )
           PY
 
-      - name: Verify public Privacy Policy URL
+      - name: Verify stable public Privacy Policy URL
         id: privacy_policy
         continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
-          case "$PRIVACY_URL" in https://*) ;; *) exit 2 ;; esac
-          curl -fLsS --retry 3 "$PRIVACY_URL" | grep -q 'Environmental Studies'
+          case "$PRIVACY_URL" in https://*) ;; *) echo "Privacy URL must use HTTPS" >&2; exit 2 ;; esac
+          case "$PRIVACY_URL" in
+            *raw.githubusercontent.com*|*/release/*|*/refs/heads/*|*/blob/*|*/tree/*)
+              echo "Privacy URL is branch-specific or raw and is not stable enough for release." >&2
+              exit 3
+              ;;
+          esac
+          BODY="$(mktemp)"
+          HTTP_CODE="$(curl -LsS --retry 3 -o "$BODY" -w '%{http_code}' "$PRIVACY_URL")"
+          test "$HTTP_CODE" = "200"
+          grep -q '<strong>Environmental Studies</strong>' "$BODY"
+          grep -q 'Policy version: 1.1 · 1 October 2026' "$BODY"
 
       - name: Apply item 1 English figure content fixes
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1365,6 +1376,14 @@ jobs:
           set -euo pipefail
           python -m py_compile ../../ci/apply_v245_fig038_glyph_fix.py
           python ../../ci/apply_v245_fig038_glyph_fix.py
+
+      - name: Apply Phase 2 offline-safe Privacy URL build lint
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/apply_v245_privacy_url_lint.py
+          python ../../ci/apply_v245_privacy_url_lint.py
 
       - name: Audit per-lesson diagram-topic parity
         id: topic_parity
