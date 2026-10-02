@@ -1509,6 +1509,20 @@ jobs:
           grep -Fx 'tts_init=PASS' tts-smoke-status.txt
           grep -Fx 'english_tts=PASS' tts-smoke-status.txt
 
+          adb shell am instrument -w \
+            -e class edu.gascnagercoil.environmentalsciences.qa.Fig038LessonScreenshotTest \
+            "$INSTRUMENTATION" | tee fig038-screen-instrumentation.txt
+          grep -Eq '^OK \([0-9]+ test' fig038-screen-instrumentation.txt
+          adb exec-out run-as "$PACKAGE" cat files/fig038-screen/u4l6-fig038.png > fig038-u4l6-screen.png
+          test -s fig038-u4l6-screen.png
+          python - <<'PYFIG'
+          from pathlib import Path
+          p=Path("fig038-u4l6-screen.png")
+          assert p.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+          assert p.stat().st_size > 10000
+          PYFIG
+          echo "fig038_u4l6_lesson_screen=PASS" | tee fig038-screen-status.txt
+
           rm -rf qa-pdf-export
           mkdir -p qa-pdf-export
           PDF_PACKAGE=""
@@ -1765,6 +1779,7 @@ jobs:
           cp ../../ci/parity-allowlist.json qa-artifact/
           cp -R qa-pdf-export qa-artifact/pdf-export-qa
           cp pdf-export-status.txt pdf-export-instrumentation.txt tts-instrumentation.txt tts-smoke-status.txt qa-artifact/
+          cp fig038-screen-instrumentation.txt fig038-screen-status.txt fig038-u4l6-screen.png qa-artifact/
           cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
           cp ../../FACTS_TO_VERIFY.md ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
           cp -R qa-svg-androidsvg qa-artifact/androidsvg-tamil-renders

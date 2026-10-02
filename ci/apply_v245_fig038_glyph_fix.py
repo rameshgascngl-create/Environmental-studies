@@ -52,6 +52,58 @@ refs = [
 ]
 assert "fig_038_u04_en" in refs, refs
 
+SCREEN_TEST = Path(
+    "app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/Fig038LessonScreenshotTest.kt"
+)
+SCREEN_TEST.parent.mkdir(parents=True, exist_ok=True)
+SCREEN_TEST.write_text(r'''package edu.gascnagercoil.environmentalsciences.qa
+
+import android.content.Context
+import android.content.Intent
+import android.os.SystemClock
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
+import java.io.FileOutputStream
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class Fig038LessonScreenshotTest {
+    @Test
+    fun captureU4l6WithFig038Visible() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        context.getSharedPreferences("learning_state", Context.MODE_PRIVATE)
+            .edit()
+            .putString("last_route", "lesson:4:u4l6")
+            .putString("language", "ENGLISH")
+            .putInt("lesson_scroll_4_u4l6_ENGLISH", 5)
+            .commit()
+
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        assertNotNull("Launch intent missing", launch)
+        launch!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        context.startActivity(launch)
+        SystemClock.sleep(2200)
+
+        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+        assertNotNull("Unable to capture u4l6 screen", bitmap)
+        assertTrue(bitmap!!.width > 0 && bitmap.height > 0)
+
+        val out = File(context.filesDir, "fig038-screen").apply { mkdirs() }
+        val png = File(out, "u4l6-fig038.png")
+        FileOutputStream(png).use {
+            assertTrue(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it))
+        }
+        assertTrue("u4l6 screenshot is unexpectedly small", png.length() > 10000L)
+        bitmap.recycle()
+    }
+}
+''', encoding="utf-8")
+
 AUDIT.write_text(
     json.dumps(
         {
@@ -66,7 +118,8 @@ AUDIT.write_text(
             "scientific_hierarchy_changed": False,
             "lesson_reference_verified": True,
             "native_asset_visual_check": "PASS",
-            "actual_lesson_screen_check": "PENDING_EMULATOR_OR_PHYSICAL_DEVICE",
+            "actual_lesson_screen_check": "CI_INSTRUMENTATION_REQUIRED",
+            "screenshot_test": str(SCREEN_TEST),
         },
         indent=2,
     ) + "\n",
