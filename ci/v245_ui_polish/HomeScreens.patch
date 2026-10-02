@@ -1,0 +1,46 @@
+--- a/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/HomeScreens.kt
++++ b/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/HomeScreens.kt
+@@ -100,30 +100,27 @@
+ 
+ @Composable
+ internal fun UnitsScreen(book: Book, navigate: (String) -> Unit, language: LanguageMode) {
+-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
++    LazyColumn(contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+         items(book.units, key = { it.number }) { unit ->
+             ElevatedCard(Modifier.fillMaxWidth()) {
+-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+-                    Text(if (language == LanguageMode.TAMIL) "அலகு ${unit.number}: ${unit.titleTa}" else "Unit ${unit.number}: ${unit.titleEn}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
++                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
++                    Text(if (language == LanguageMode.TAMIL) "அலகு ${unit.number}: ${unit.titleTa}" else "Unit ${unit.number}: ${unit.titleEn}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                     unit.lessons.forEach { lesson ->
+                         OutlinedCard(Modifier.fillMaxWidth().clickable { navigate("lesson:${unit.number}:${lesson.id}") }) {
+-                            Column(Modifier.padding(12.dp)) {
++                            Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                 Text("${lesson.number} ${if (language == LanguageMode.TAMIL) lesson.titleTa else lesson.titleEn}", fontWeight = FontWeight.Medium)
+                             }
+                         }
+                     }
+-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+-                        if (maxWidth < 420.dp) {
+-                            Column {
+-                                TextButton(onClick = { navigate("review:${unit.number}") }, modifier = Modifier.fillMaxWidth()) { Text(if (language == LanguageMode.TAMIL) "மீளாய்வு" else "Review") }
+-                                TextButton(onClick = { navigate("quiz:${unit.number}") }, modifier = Modifier.fillMaxWidth()) { Text(if (language == LanguageMode.TAMIL) "பல்தேர்வு பயிற்சி (${unit.quiz.size})" else "MCQ practice (${unit.quiz.size})") }
+-                            }
+-                        } else {
+-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+-                                TextButton(onClick = { navigate("review:${unit.number}") }) { Text(if (language == LanguageMode.TAMIL) "மீளாய்வு" else "Review") }
+-                                TextButton(onClick = { navigate("quiz:${unit.number}") }) { Text(if (language == LanguageMode.TAMIL) "பல்தேர்வு பயிற்சி (${unit.quiz.size})" else "MCQ practice (${unit.quiz.size})") }
+-                            }
+-                        }
++                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                        FilledTonalButton(
++                            onClick = { navigate("review:${unit.number}") },
++                            modifier = Modifier.weight(1f),
++                        ) { Text(if (language == LanguageMode.TAMIL) "மீளாய்வு" else "Review") }
++                        Button(
++                            onClick = { navigate("quiz:${unit.number}") },
++                            modifier = Modifier.weight(1f),
++                        ) { Text(if (language == LanguageMode.TAMIL) "வினாடி வினா (${unit.quiz.size})" else "MCQ (${unit.quiz.size})") }
+                     }
+                 }
+             }

@@ -1,0 +1,112 @@
+--- a/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt
++++ b/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/ClimateEvents.kt
+@@ -8,6 +8,8 @@
+ import androidx.compose.foundation.Canvas
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.BoxWithConstraints
++import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.PaddingValues
+ import androidx.compose.foundation.layout.Row
+@@ -113,19 +115,33 @@
+                 style = MaterialTheme.typography.bodyMedium,
+             )
+ 
+-            LazyRow(
+-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+-                contentPadding = PaddingValues(end = 8.dp),
+-            ) {
+-                items(climateEvents) { item ->
+-                    FilterChip(
+-                        selected = selected == item.event,
+-                        onClick = {
+-                            narration.stop()
+-                            selected = item.event
+-                        },
+-                        label = { Text(if (tamil) item.ta else item.en) },
+-                    )
++            BoxWithConstraints(Modifier.fillMaxWidth()) {
++                if (maxWidth < 520.dp) {
++                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
++                        climateEvents.chunked(2).forEach { rowItems ->
++                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                                rowItems.forEach { item ->
++                                    FilterChip(
++                                        selected = selected == item.event,
++                                        onClick = { narration.stop(); selected = item.event },
++                                        label = { Text(if (tamil) item.ta else item.en, maxLines = 2) },
++                                        modifier = Modifier.weight(1f),
++                                    )
++                                }
++                                if (rowItems.size == 1) Spacer(Modifier.weight(1f))
++                            }
++                        }
++                    }
++                } else {
++                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(end = 8.dp)) {
++                        items(climateEvents) { item ->
++                            FilterChip(
++                                selected = selected == item.event,
++                                onClick = { narration.stop(); selected = item.event },
++                                label = { Text(if (tamil) item.ta else item.en) },
++                            )
++                        }
++                    }
+                 }
+             }
+ 
+@@ -238,31 +254,32 @@
+             }
+ 
+             ClimateEvent.MONSOON -> {
+-                drawRect(Color(0xFFB3E5FC), topLeft = Offset.Zero, size = Size(w, h))
+-                drawRect(Color(0xFF4FC3F7), topLeft = Offset(0f, h * 0.72f), size = Size(w * 0.38f, h * 0.28f))
+-                val mountain = Path().apply {
+-                    moveTo(w * 0.58f, h * 0.84f)
+-                    lineTo(w * 0.72f, h * 0.32f)
+-                    lineTo(w * 0.86f, h * 0.84f)
+-                    close()
++                drawRect(Brush.verticalGradient(listOf(Color(0xFFD9F3FF), Color(0xFF9AD9F3))), topLeft = Offset.Zero, size = Size(w, h))
++                drawRect(Color(0xFF38AEE5), topLeft = Offset(0f, h * 0.70f), size = Size(w * 0.34f, h * 0.30f))
++                drawRect(Color(0xFFAED581), topLeft = Offset(w * 0.34f, h * 0.79f), size = Size(w * 0.66f, h * 0.21f))
++                val ridge = Path().apply {
++                    moveTo(w*.50f,h*.80f); lineTo(w*.60f,h*.54f); lineTo(w*.66f,h*.64f)
++                    lineTo(w*.72f,h*.39f); lineTo(w*.80f,h*.58f); lineTo(w*.88f,h*.80f); close()
+                 }
+-                drawPath(mountain, Color(0xFF66BB6A))
+-                repeat(4) { i ->
+-                    val y = h * (0.30f + i * 0.10f)
+-                    val dx = ((phase + i * 0.17f) % 1f) * w * 0.46f
+-                    drawLine(
+-                        color = primary,
+-                        start = Offset(w * 0.08f + dx, y),
+-                        end = Offset(w * 0.22f + dx, y),
+-                        strokeWidth = 7f,
+-                        cap = StrokeCap.Round,
+-                    )
++                drawPath(ridge, Color(0xFF5EAD68))
++                repeat(3) { i ->
++                    val progress = (phase + i*.28f) % 1f
++                    val x0 = w*(.08f + progress*.40f); val y0 = h*(.56f - i*.09f)
++                    val x1 = x0 + w*.15f; val y1 = y0 - h*.04f
++                    drawLine(primary, Offset(x0,y0), Offset(x1,y1), 6f, StrokeCap.Round)
++                    drawLine(primary, Offset(x1,y1), Offset(x1-11f,y1-8f), 5f, StrokeCap.Round)
++                    drawLine(primary, Offset(x1,y1), Offset(x1-10f,y1+9f), 5f, StrokeCap.Round)
+                 }
++                val cloud = Color.White.copy(alpha=.94f)
++                drawCircle(cloud, h*.075f, Offset(w*.54f,h*.31f))
++                drawCircle(cloud, h*.095f, Offset(w*.62f,h*.29f))
++                drawCircle(cloud, h*.070f, Offset(w*.70f,h*.33f))
+                 repeat(7) { i ->
+-                    val x = w * (0.48f + i * 0.055f)
+-                    val dropY = h * (0.25f + ((phase + i * 0.11f) % 1f) * 0.40f)
+-                    drawLine(secondary, Offset(x, dropY), Offset(x - 5f, dropY + 18f), 5f, StrokeCap.Round)
++                    val x = w*(.50f + i*.030f)
++                    val y = h*.40f + ((phase + i*.11f) % 1f)*h*.19f
++                    drawLine(Color(0xFF2479B8), Offset(x,y), Offset(x-4f,y+16f), 4f, StrokeCap.Round)
+                 }
++                drawCircle(Color(0xFFF2C94C), h*.055f, Offset(w*.92f,h*.24f))
+             }
+ 
+             ClimateEvent.DROUGHT -> {

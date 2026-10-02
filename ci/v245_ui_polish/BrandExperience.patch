@@ -1,0 +1,32 @@
+--- a/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/BrandExperience.kt
++++ b/app/src/main/java/edu/gascnagercoil/environmentalsciences/ui/BrandExperience.kt
+@@ -43,11 +43,11 @@
+     )
+     Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), tonalElevation = 3.dp) {
+         Row(
+-            modifier = Modifier.background(brush).padding(18.dp),
+-            horizontalArrangement = Arrangement.spacedBy(14.dp),
++            modifier = Modifier.background(brush).padding(horizontal = 14.dp, vertical = 16.dp),
++            horizontalArrangement = Arrangement.spacedBy(10.dp),
+             verticalAlignment = Alignment.CenterVertically
+         ) {
+-            Canvas(Modifier.size(112.dp)) {
++            Canvas(Modifier.size(86.dp)) {
+                 drawCircle(Color(0xFFF7F3E8), radius = size.minDimension * 0.46f)
+                 drawCircle(sun, radius = size.minDimension * 0.075f, center = Offset(size.width * .31f, size.height * .28f))
+                 val hills=Path().apply {
+@@ -78,11 +78,12 @@
+                 }
+                 drawPath(book, primary)
+             }
+-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
++            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                 Text(
+                     if (tamil) "சுற்றுச்சூழல் ஆய்வுகள்" else "ENVIRONMENTAL STUDIES",
+-                    style = MaterialTheme.typography.titleLarge,
++                    style = MaterialTheme.typography.titleMedium,
+                     fontWeight = FontWeight.ExtraBold,
++                    maxLines = 2,
+                     color = MaterialTheme.colorScheme.onPrimaryContainer
+                 )
+                 Text(
