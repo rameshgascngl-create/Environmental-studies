@@ -124,7 +124,7 @@ old='''            var scale by remember(resId) { mutableFloatStateOf(readingSca
 assert old in native, "raster dialog initial-scale anchor missing"
 native=native.replace(old,'''            var scale by remember(resId) { mutableFloatStateOf(1f) }''',1)
 
-literal = r'Text("\\${readingScale}×")'
+literal = r'Text("\${readingScale}×")'
 old='''                    TextButton(onClick = { setScale(readingScale) }) { ''' + literal + ''' }'''
 assert old in native, "literal readingScale label anchor missing"
 native=native.replace(old,'''                    TextButton(onClick = { setScale(readingScale) }) { Text(readingScaleLabel) }''',1)
@@ -132,7 +132,7 @@ NATIVE.write_text(native,encoding="utf-8")
 
 assert sha256(BOOK)==EXPECTED_BOOK_SHA256, "book payload changed during lesson/figure UI correction"
 
-literal_check = r'Text("\\${readingScale}×")'
+literal_check = r'Text("\${readingScale}×")'
 checks={
     "lesson_top_bar_contextual": '"பாடம்" else "Lesson"' in NAV.read_text(),
     "inline_svg_fit_whole_plate": ".aspectRatio(figureAspectRatio)" in SVG.read_text(),
