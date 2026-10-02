@@ -6,6 +6,7 @@ import json
 GRADLE = Path("app/build.gradle.kts")
 QA_MANIFEST = Path("app/src/releaseQa/AndroidManifest.xml")
 QA_TEST = Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/ReleaseQaLessonEvidenceTest.kt")
+QA_TEST_PROGUARD = Path("app/proguard-releaseqa-androidtest.pro")
 AUDIT = Path("V245_RELEASE_QA_VARIANT_AUDIT.json")
 LABEL = "QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION"
 
@@ -38,6 +39,7 @@ qa_block = release_block + '''        create("releaseQa") {
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("debug")
+            testProguardFiles("proguard-releaseqa-androidtest.pro")
             matchingFallbacks += listOf("release")
         }
 '''
@@ -53,6 +55,7 @@ assert 'applicationIdSuffix' not in qa_section
 assert 'isMinifyEnabled = true' in qa_section
 assert 'isShrinkResources = true' in qa_section
 assert 'signingConfig = signingConfigs.getByName("debug")' in qa_section
+assert 'testProguardFiles("proguard-releaseqa-androidtest.pro")' in qa_section
 dependency_anchor = '    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n'
 assert after.count(dependency_anchor) == 1
 after = after.replace(
@@ -61,6 +64,8 @@ after = after.replace(
     1,
 )
 GRADLE.write_text(after, encoding="utf-8")
+
+QA_TEST_PROGUARD.write_text("""# QA-only AndroidTest R8 rule.\n# error_prone_annotations references JDK compiler model types that are not present on Android.\n-dontwarn javax.lang.model.element.**\n""", encoding="utf-8")
 
 QA_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
 QA_MANIFEST.write_text(f'''<?xml version="1.0" encoding="utf-8"?>
@@ -214,6 +219,8 @@ AUDIT.write_text(json.dumps({
     "distributionAllowed": False,
     "testBuildType": "releaseQa",
     "androidTestR8SupportDependency": "com.google.errorprone:error_prone_annotations:2.36.0",
+    "androidTestR8Rules": str(QA_TEST_PROGUARD),
+    "androidTestR8DontWarn": "javax.lang.model.element.**",
     "gradleSha256Before": before_sha,
     "gradleSha256After": hashlib.sha256(final_gradle.encode()).hexdigest(),
     "evidenceTest": str(QA_TEST),
