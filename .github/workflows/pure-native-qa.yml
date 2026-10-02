@@ -1300,12 +1300,29 @@ jobs:
           python ../../ci/apply_v245_item2_remove_orphan_figures.py
 
       - name: Audit item 3 Tamil lesson length anomalies
+        id: item3_content
+        continue-on-error: true
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
           python -m py_compile ../../ci/audit_v245_item3_tamil_parity.py
           python ../../ci/audit_v245_item3_tamil_parity.py
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          audit=json.loads(Path("V245_ITEM3_TAMIL_PARITY_AUDIT.json").read_text(encoding="utf-8"))
+          blockers=[]
+          if audit["u9l1"].get("duplication_detected"):
+              blockers.append("u9l1 Tamil duplication")
+          if audit["u1l4"].get("omission_detected"):
+              blockers.append("u1l4 Tamil omission")
+          if blockers:
+              print("ITEM 3 OPEN — FINAL BLOCKED: " + "; ".join(blockers), file=sys.stderr)
+              sys.exit(10)
+          PY
 
       - name: Apply item 4 quiz explanation punctuation
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1814,12 +1831,21 @@ jobs:
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
 
-      - name: Enforce final diagram-topic parity gate
-        if: always() && steps.topic_parity.outcome != 'skipped'
+      - name: Enforce final release-candidate gates
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
+          failed=0
+          if [ "${{ steps.item3_content.outcome }}" != "success" ]; then
+            echo "RELEASE-CANDIDATE ONLY: Item 3 Tamil content defects remain OPEN."
+            failed=1
+          fi
           if [ "${{ steps.topic_parity.outcome }}" != "success" ]; then
             echo "RELEASE-CANDIDATE ONLY: unresolved diagram-topic parity entries remain."
+            failed=1
+          fi
+          if [ "$failed" -ne 0 ]; then
+            echo "NOT FINAL"
             exit 9
           fi
