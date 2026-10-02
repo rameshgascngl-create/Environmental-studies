@@ -7,6 +7,7 @@ GRADLE = Path("app/build.gradle.kts")
 QA_MANIFEST = Path("app/src/releaseQa/AndroidManifest.xml")
 QA_TEST = Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/ReleaseQaLessonEvidenceTest.kt")
 QA_TEST_PROGUARD = Path("app/proguard-releaseqa-androidtest.pro")
+QA_TARGET_PROGUARD = Path("app/proguard-releaseqa-target.pro")
 AUDIT = Path("V245_RELEASE_QA_VARIANT_AUDIT.json")
 LABEL = "QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION"
 
@@ -38,6 +39,7 @@ qa_block = release_block + '''        create("releaseQa") {
             isDebuggable = true
             isMinifyEnabled = true
             isShrinkResources = true
+            proguardFiles("proguard-releaseqa-target.pro")
             signingConfig = signingConfigs.getByName("debug")
             testProguardFiles("proguard-releaseqa-androidtest.pro")
             matchingFallbacks += listOf("release")
@@ -54,6 +56,7 @@ qa_section = after.split('create("releaseQa") {', 1)[1].split('}', 1)[0]
 assert 'applicationIdSuffix' not in qa_section
 assert 'isMinifyEnabled = true' in qa_section
 assert 'isShrinkResources = true' in qa_section
+assert 'proguardFiles("proguard-releaseqa-target.pro")' in qa_section
 assert 'signingConfig = signingConfigs.getByName("debug")' in qa_section
 assert 'testProguardFiles("proguard-releaseqa-androidtest.pro")' in qa_section
 dependency_anchor = '    androidTestImplementation("androidx.test.ext:junit:1.2.1")\n'
@@ -66,6 +69,14 @@ after = after.replace(
     1,
 )
 GRADLE.write_text(after, encoding="utf-8")
+
+QA_TARGET_PROGUARD.write_text("""# QA-only releaseQa target R8 rules.
+# AndroidX Test resolves these Kotlin lazy classes through the target/app classloader
+# after AndroidTest dependency subtraction. Keep only the exact runtime classes needed.
+-keep class kotlin.LazyKt { *; }
+-keep class kotlin.LazyKt__LazyJVMKt { *; }
+-keep class kotlin.LazyKt__LazyKt { *; }
+""", encoding="utf-8")
 
 QA_TEST_PROGUARD.write_text("""# QA-only AndroidTest R8 rules.\n# error_prone_annotations references JDK compiler model types that are not present on Android.\n-dontwarn javax.lang.model.element.**\n# Keep only the Kotlin lazy façade/implementation classes required by the releaseQa instrumentation runtime.\n-keep class kotlin.LazyKt { *; }\n-keep class kotlin.LazyKt__LazyJVMKt { *; }\n-keep class kotlin.LazyKt__LazyKt { *; }\n""", encoding="utf-8")
 
@@ -222,6 +233,12 @@ AUDIT.write_text(json.dumps({
     "testBuildType": "releaseQa",
     "androidTestR8SupportDependency": "com.google.errorprone:error_prone_annotations:2.36.0",
     "androidTestKotlinStdlibDependency": "kotlin(\\\"stdlib\\\")",
+    "releaseQaTargetR8Rules": str(QA_TARGET_PROGUARD),
+    "releaseQaTargetR8KotlinKeepClasses": [
+        "kotlin.LazyKt",
+        "kotlin.LazyKt__LazyJVMKt",
+        "kotlin.LazyKt__LazyKt",
+    ],
     "androidTestR8Rules": str(QA_TEST_PROGUARD),
     "androidTestR8DontWarn": "javax.lang.model.element.**",
     "androidTestR8KotlinKeepClasses": [

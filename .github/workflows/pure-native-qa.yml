@@ -1444,34 +1444,30 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Prove releaseQa AndroidTest rules are isolated from production release
+      - name: Prove releaseQa target/test rules are isolated from production release
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
           set -euo pipefail
-          QA_RULE="app/proguard-releaseqa-androidtest.pro"
+          QA_TEST_RULE="app/proguard-releaseqa-androidtest.pro"
+          QA_TARGET_RULE="app/proguard-releaseqa-target.pro"
           APP_GRADLE="app/build.gradle.kts"
-          test -f "$QA_RULE"
+          test -f "$QA_TEST_RULE"
+          test -f "$QA_TARGET_RULE"
           test -f "$APP_GRADLE"
-          cp "$QA_RULE" "$RUNNER_TEMP/releaseqa-rule-after.pro"
           cp "$APP_GRADLE" "$RUNNER_TEMP/app-build-after.gradle.kts"
 
-          # Recreate the immediately preceding QA-only state: no explicit
-          # AndroidTest Kotlin stdlib and no Kotlin Lazy keep rules. Production
-          # configuration itself is never edited.
+          # Recreate the immediately preceding failing state: the AndroidTest
+          # stdlib dependency and AndroidTest keep rules remain, but the new
+          # releaseQa-target keep file is detached. Production release is never edited.
           python - <<'PYQA'
           from pathlib import Path
           p=Path("app/build.gradle.kts")
           s=p.read_text()
-          line='    androidTestImplementation(kotlin("stdlib"))\n'
-          assert s.count(line) == 1, "QA-only Kotlin stdlib dependency missing"
+          line='            proguardFiles("proguard-releaseqa-target.pro")\n'
+          assert s.count(line) == 1, "releaseQa target keep rule attachment missing"
           p.write_text(s.replace(line, "", 1))
           PYQA
-          cat > "$QA_RULE" <<'EOF'
-          # QA-only AndroidTest R8 rule.
-          # error_prone_annotations references JDK compiler model types that are not present on Android.
-          -dontwarn javax.lang.model.element.**
-          EOF
 
           export ENVSTUDIES_KEYSTORE_PATH=""
           export ENVSTUDIES_KEYSTORE_PASSWORD=""
@@ -1480,7 +1476,10 @@ jobs:
 
           build_release_snapshot() {
             label="$1"
-            gradle --no-daemon clean :app:packageRelease               -PPRIVACY_POLICY_URL="$PRIVACY_URL"               -PALLOW_UNSIGNED_RELEASE_QA=true               --stacktrace
+            gradle --no-daemon clean :app:packageRelease \
+              -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
+              -PALLOW_UNSIGNED_RELEASE_QA=true \
+              --stacktrace
             apk="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
             test -f "$apk"
             dex_dir="$RUNNER_TEMP/production-$label-dex"
@@ -1495,8 +1494,10 @@ jobs:
 
           build_release_snapshot before
           cp "$RUNNER_TEMP/app-build-after.gradle.kts" "$APP_GRADLE"
-          cp "$RUNNER_TEMP/releaseqa-rule-after.pro" "$QA_RULE"
-          grep -Fq 'androidTestImplementation(kotlin("stdlib"))' "$APP_GRADLE"
+          grep -Fq 'proguardFiles("proguard-releaseqa-target.pro")' "$APP_GRADLE"
+          grep -Fq -- '-keep class kotlin.LazyKt { *; }' "$QA_TARGET_RULE"
+          grep -Fq -- '-keep class kotlin.LazyKt__LazyJVMKt { *; }' "$QA_TARGET_RULE"
+          grep -Fq -- '-keep class kotlin.LazyKt__LazyKt { *; }' "$QA_TARGET_RULE"
           build_release_snapshot after
 
           cmp "$RUNNER_TEMP/production-before-dex.sha256" "$RUNNER_TEMP/production-after-dex.sha256"
@@ -1505,6 +1506,7 @@ jobs:
             echo "production_release_dex_identity=PASS"
             echo "production_release_r8_configuration_identity=PASS"
             echo "production_release_keep_rule_set_identity=PASS"
+            echo "qa_target_rule_scope=releaseQa-target-only"
             echo "qa_test_rule_scope=releaseQa-AndroidTest-only"
             echo "qa_test_dependency_scope=androidTestImplementation-only"
             echo "before_dex_sha256:"
@@ -1709,12 +1711,20 @@ jobs:
           grep -q "package: name='edu.gascnagercoil.environmentalsciences'" releaseqa-badging.txt
           grep -Fq "QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION" releaseqa-badging.txt
           grep -q 'CN=Android Debug' releaseqa-certificate.txt
+
+          # Fail before instrumentation if the target APK still lacks the
+          # Kotlin lazy façade that AndroidX Test resolves from the app classloader.
+          unzip -p "$APP_APK" 'classes*.dex' | strings > releaseqa-target-dex-strings.txt
+          grep -Fq 'Lkotlin/LazyKt;' releaseqa-target-dex-strings.txt
+          grep -Fq 'Lkotlin/LazyKt__LazyJVMKt;' releaseqa-target-dex-strings.txt
+          grep -Fq 'Lkotlin/LazyKt__LazyKt;' releaseqa-target-dex-strings.txt
           {
             echo "variant=releaseQa"
             echo "label=QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION"
             echo "applicationId=edu.gascnagercoil.environmentalsciences"
             echo "minifyEnabled=true"
             echo "shrinkResources=true"
+            echo "target_kotlin_lazy_classes=PASS"
             echo "signing=ANDROID_DEBUG_KEY"
             echo "distribution=PROHIBITED"
           } | tee releaseqa-build-status.txt
@@ -1956,6 +1966,7 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-build-status.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-badging.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-certificate.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-target-dex-strings.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-status.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-instrumentation.txt
             native-build/Environmental-Studies-v2.0.0-native/fig038-u4l6-screen.png
@@ -2119,7 +2130,7 @@ jobs:
           if [ -f tts-engine-packages.txt ]; then cp tts-engine-packages.txt qa-artifact/; fi
           if [ -f ../../privacy-url-status.txt ]; then cp ../../privacy-url-status.txt qa-artifact/; fi
           cp fig038-screen-instrumentation.txt fig038-screen-status.txt fig038-u4l6-screen.png qa-artifact/
-          cp releaseqa-build-status.txt releaseqa-badging.txt releaseqa-certificate.txt releaseqa-lesson-status.txt releaseqa-lesson-instrumentation.txt qa-artifact/
+          cp releaseqa-build-status.txt releaseqa-badging.txt releaseqa-certificate.txt releaseqa-target-dex-strings.txt releaseqa-lesson-status.txt releaseqa-lesson-instrumentation.txt qa-artifact/
           cp -R qa-releaseqa-screens qa-artifact/releaseqa-screens
           cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
           cp ../../FACTS_TO_VERIFY.md ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
@@ -2129,6 +2140,7 @@ jobs:
           fi
           tar -czf qa-artifact/v245-reconstructed-source.tar.gz \
             app/src/main/java app/src/main/res app/src/androidTest app/build.gradle.kts app/proguard-rules.pro \
+            app/proguard-releaseqa-target.pro app/proguard-releaseqa-androidtest.pro \
             baselineprofile settings.gradle.kts build.gradle.kts gradle.properties
           cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v245_release_candidate.json
 
