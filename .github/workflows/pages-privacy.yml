@@ -2,7 +2,7 @@ name: Deploy Environmental Studies privacy policy
 
 on:
   push:
-    branches: [main]
+    branches: [main, release/v2.4.5-rc-20261001]
     paths:
       - 'site/**'
       - '.github/workflows/pages-privacy.yml'
