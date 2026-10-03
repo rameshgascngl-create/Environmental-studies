@@ -1582,6 +1582,17 @@ jobs:
           print("V246_MOBILE_LAYOUT_PASS")
           PY
 
+      - name: Audit per-lesson diagram-topic parity
+        if: env.RELEASEQA_MODE == 'full'
+        id: topic_parity
+        continue-on-error: true
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/audit_v245_topic_parity.py
+          python ../../ci/audit_v245_topic_parity.py
+
       - name: Apply and audit v2.4.6 concept visual atlas
         if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1836,17 +1847,6 @@ jobs:
           set -euo pipefail
           python -m py_compile ../../ci/apply_v245_release_qa_variant.py
           python ../../ci/apply_v245_release_qa_variant.py
-
-      - name: Audit per-lesson diagram-topic parity
-        if: env.RELEASEQA_MODE == 'full'
-        id: topic_parity
-        continue-on-error: true
-        working-directory: native-build/Environmental-Studies-v2.0.0-native
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m py_compile ../../ci/audit_v245_topic_parity.py
-          python ../../ci/audit_v245_topic_parity.py
 
       - uses: actions/setup-java@v5
         with:
@@ -2573,9 +2573,10 @@ jobs:
             TTS_RC=${PIPESTATUS[0]}
             set -e
             if [ "$TTS_RC" -eq 0 ]; then
-              adb exec-out run-as "$PACKAGE" cat files/tts-qa/status.txt > tts-smoke-status.txt || true
+              adb exec-out run-as "$PACKAGE" cat files/tts-qa/status.txt > tts-smoke-status.txt 2>/dev/null || true
             fi
-            if [ ! -s tts-smoke-status.txt ]; then
+            if ! grep -q '^tts_environment=' tts-smoke-status.txt 2>/dev/null; then
+              rm -f tts-smoke-status.txt
               if grep -Fq 'Default TTS image must support English' tts-instrumentation.txt; then
                 {
                   echo "tts_environment=EMULATOR_ENGINE_LANGUAGE_UNAVAILABLE"
@@ -3023,7 +3024,12 @@ jobs:
           cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
           cp "$RELEASE_QA_APK" qa-artifact/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
           cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
-          cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt release-privacy-dex-status.txt release-privacy-dex-urls.txt releaseqa-runtime-keep-match-summary.txt releaseqa-genuine-missing-runtime-classes.txt qa-artifact/
+          cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt release-privacy-dex-status.txt release-privacy-dex-urls.txt qa-artifact/
+          for OPTIONAL_DEX_EVIDENCE in releaseqa-runtime-keep-match-summary.txt releaseqa-genuine-missing-runtime-classes.txt; do
+            if [ -f "$OPTIONAL_DEX_EVIDENCE" ]; then
+              cp "$OPTIONAL_DEX_EVIDENCE" qa-artifact/
+            fi
+          done
           if [ -f release-certificate.txt ]; then cp release-certificate.txt qa-artifact/; fi
           cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V240_B_ARCHITECTURE_FINDINGS.json V240_C1_IMAGE_DECODE_AUDIT.json V240_C2_SVG_LEGIBILITY_AUDIT.json V240_C3_TAMIL_FONT_AUDIT.json V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
