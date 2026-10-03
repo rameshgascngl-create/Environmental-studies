@@ -292,7 +292,12 @@ class SvgAndroidSvgScreenshotTest {
                                 lesson.optString("id"),
                             figure.isNotBlank(),
                         )
-                        tamilSvgNames += figure
+                        // Frozen v2.4.5 gate: legacy Tamil plates use the _ta suffix.
+                        // v2.4.6 atlas plates use _t and are rendered by the separate
+                        // V246SvgAndroidSvgScreenshotTest below.
+                        if (figure.endsWith("_ta")) {
+                            tamilSvgNames += figure
+                        }
                     }
                 }
             }
