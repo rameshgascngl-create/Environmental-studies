@@ -297,9 +297,23 @@ class SvgAndroidSvgScreenshotTest {
             }
         }
 
-        val expected = 46
+        val legacyNames = tamilSvgNames.filter { it.endsWith("_ta") }.toSet()
+        val v246Names = tamilSvgNames.filter { it.startsWith("sci_v246_") && it.endsWith("_t") }.toSet()
+        val legacyExpected = 46
+        val v246Expected = 56
+        val expected = legacyExpected + v246Expected
         assertEquals(
-            "book_content.json must reference exactly 46 unique Tamil svg_figure resources",
+            "Legacy Tamil SVG set must remain exactly 46 resources",
+            legacyExpected,
+            legacyNames.size,
+        )
+        assertEquals(
+            "v2.4.6 visual atlas must contribute exactly 56 Tamil SVG resources",
+            v246Expected,
+            v246Names.size,
+        )
+        assertEquals(
+            "book_content.json must reference exactly 102 unique Tamil svg_figure resources",
             expected,
             tamilSvgNames.size,
         )
@@ -347,6 +361,10 @@ class SvgAndroidSvgScreenshotTest {
             "api=${Build.VERSION.SDK_INT}",
             "package=${context.packageName}",
             "output=${out.absolutePath}",
+            "legacyExpected=$legacyExpected",
+            "legacyFound=${legacyNames.size}",
+            "v246Expected=$v246Expected",
+            "v246Found=${v246Names.size}",
             "expected=$expected",
             "rendered=${rendered.size}",
             "result=${rendered.size}/$expected",
