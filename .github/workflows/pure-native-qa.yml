@@ -2815,6 +2815,7 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_CI_AUDIT.json
             native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_SVG_LAYOUT.json
             native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_TRANSFORM_SHA256.txt
+            native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_PHOTO_AUDIT.json
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-emulator-status.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-render-package.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
@@ -2969,6 +2970,13 @@ jobs:
           cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
           cp ../../FACTS_TO_VERIFY.md ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
           cp -R qa-svg-androidsvg qa-artifact/androidsvg-tamil-renders
+          if [ -f V246_VISUAL_ATLAS_CI_AUDIT.json ]; then
+            cp V246_VISUAL_ATLAS_CI_AUDIT.json V246_VISUAL_ATLAS_SVG_LAYOUT.json V246_VISUAL_ATLAS_TRANSFORM_SHA256.txt V246_VISUAL_PHOTO_AUDIT.json qa-artifact/
+          fi
+          if [ -d qa-v246-svg-androidsvg ]; then
+            cp -R qa-v246-svg-androidsvg qa-artifact/v246-androidsvg-tamil-renders
+            cp v246-androidsvg-instrumentation.txt v246-androidsvg-emulator-status.txt qa-artifact/
+          fi
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
