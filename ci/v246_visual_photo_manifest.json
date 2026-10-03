@@ -81,12 +81,11 @@
     "output_ext": ".webp",
     "max_dimension": 1200,
     "webp_quality": 82,
-    "expected_output_sha256": null,
+    "expected_output_sha256": "b863c5e7dabf01e69c73b58e83afead447976a4255cd9d96eb1073f9b75bbcd4",
     "modification_notice": "resized and converted to WebP",
     "share_alike_notice": "CC BY-SA 4.0: attribution, licence link, indication of modification, and ShareAlike conditions apply.",
     "source_title": "Low visibility due to Smog at New Delhi Railway station 31st Dec 2017 after 9AM DSCN8829 1.jpg",
-    "source_description": "Low visibility due to smog at New Delhi railway station, 31 December 2017 at 9:20 AM.",
-    "pin_pending": true
+    "source_description": "Low visibility due to smog at New Delhi railway station, 31 December 2017 at 9:20 AM."
   },
   {
     "id": "fig_v246_algal_bloom",
@@ -104,12 +103,11 @@
     "output_ext": ".webp",
     "max_dimension": 1200,
     "webp_quality": 82,
-    "expected_output_sha256": null,
+    "expected_output_sha256": "ad75d8f5cda716e18e7e37ff5fe75c7aecf414eca14af4ff66a65cc1c3f838c5",
     "modification_notice": "resized and converted to WebP",
     "share_alike_notice": "CC BY-SA 3.0: attribution, licence link, indication of modification, and ShareAlike conditions apply.",
     "source_title": "Cyanobacteria Aggregation2.jpg",
-    "source_description": "Bloom of cyanobacteria in a freshwater pond; wind drift concentrated the surface accumulation in one corner.",
-    "pin_pending": true
+    "source_description": "Bloom of cyanobacteria in a freshwater pond; wind drift concentrated the surface accumulation in one corner."
   },
   {
     "id": "fig_v246_waste_bins",
@@ -171,11 +169,10 @@
     "output_ext": ".webp",
     "max_dimension": 1200,
     "webp_quality": 82,
-    "expected_output_sha256": null,
+    "expected_output_sha256": "60b516919f63805dcb0bd3d60777d884af9ba2ab626a7432b384356acc6172a3",
     "modification_notice": "resized and converted to WebP",
     "share_alike_notice": null,
     "source_title": "Rooftop Rainwater Harvesting System - Digha Science Centre - New Digha - East Midnapore 2015-05-03 9928.JPG",
-    "source_description": "Exhibit at the Digha Science Centre & National Science Camp, New Digha, West Bengal.",
-    "pin_pending": true
+    "source_description": "Exhibit at the Digha Science Centre & National Science Camp, New Digha, West Bengal."
   }
 ]
