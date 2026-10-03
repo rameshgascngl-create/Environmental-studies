@@ -82,6 +82,8 @@ assert len(svg) >= 65, len(svg)
 assert not unexpected, unexpected
 
 v246_png = sorted(x for x in png if x.startswith("fig_v246_"))
+v246_webp = v246_png
+legacy_png = sorted(x for x in png if not x.startswith("fig_v246_"))
 v246_svg = sorted(x for x in svg if x.startswith("sci_v246_"))
 if v246_png or v246_svg:
     assert len(v246_png) == 8, len(v246_png)
@@ -105,13 +107,18 @@ for name in sorted(refs):
 
 aab_missing_file = []
 drawable_exts = (".png", ".webp", ".jpg", ".jpeg")
-def aab_drawable_present(name: str) -> bool:
-    return any(
-        x.startswith("base/res/drawable")
+def aab_drawable_path(name: str):
+    matches = [
+        x for x in aab_entries
+        if x.startswith("base/res/drawable")
         and Path(x).stem == name
         and Path(x).suffix.lower() in drawable_exts
-        for x in aab_entries
-    )
+    ]
+    assert len(matches) <= 1, (name, matches)
+    return matches[0] if matches else None
+
+def aab_drawable_present(name: str) -> bool:
+    return aab_drawable_path(name) is not None
 
 for name in sorted(refs):
     present = (
@@ -143,6 +150,48 @@ assert (aab_png_files, aab_svg_files) == (len(png), len(svg))
 assert "resources.arsc" in apk_entries
 assert "base/resources.pb" in aab_entries
 
+# v2.4.6 photographs are deliberately WebP resources. Prove the resource
+# table resolves each fig_v246 name to a WebP file in both APK and AAB.
+apk_v246_wrong_extension = {
+    name: apk_paths.get(name)
+    for name in v246_webp
+    if not apk_paths.get(name) or Path(apk_paths[name]).suffix.lower() != ".webp"
+}
+aab_v246_paths = {name: aab_drawable_path(name) for name in v246_webp}
+aab_v246_wrong_extension = {
+    name: path
+    for name, path in aab_v246_paths.items()
+    if not path or Path(path).suffix.lower() != ".webp"
+}
+assert not apk_v246_wrong_extension, apk_v246_wrong_extension
+assert not aab_v246_wrong_extension, aab_v246_wrong_extension
+
+# Every packaged v2.4.6 photograph must also have a packaged attribution
+# record. This is checked from the same APK/AAB being audited, not only source.
+photo_credits = []
+credits_apk_path = None
+credits_aab_path = None
+if v246_webp:
+    credits_apk_path = resource_file_path("raw", "v246_photo_credits")
+    assert credits_apk_path, "raw/v246_photo_credits missing from release APK resources.arsc"
+    assert credits_apk_path in apk_entries, credits_apk_path
+    credits_aab_path = "base/res/raw/v246_photo_credits.json"
+    assert credits_aab_path in aab_entries
+    with zipfile.ZipFile(apk) as z:
+        credits_apk_bytes = z.read(credits_apk_path)
+    with zipfile.ZipFile(aab) as z:
+        credits_aab_bytes = z.read(credits_aab_path)
+    assert credits_apk_bytes == credits_aab_bytes, "APK/AAB v246 photo credits differ"
+    photo_credits = json.loads(credits_apk_bytes.decode("utf-8"))
+    credit_ids = {x.get("id") for x in photo_credits}
+    assert credit_ids == set(v246_webp), (sorted(credit_ids), v246_webp)
+    for credit in photo_credits:
+        for key in ("title", "author", "sourceUrl", "licence", "licenceUrl", "modification"):
+            assert str(credit.get(key, "")).strip(), (credit.get("id"), key)
+        assert credit["modification"] == "resized and converted to WebP", credit["id"]
+        if "BY-SA" in credit["licence"]:
+            assert "ShareAlike" in credit.get("shareAlikeNotice", ""), credit["id"]
+
 def sha256_bytes(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
@@ -163,9 +212,19 @@ report = {
         "sha256": sha256_bytes(apk_book_bytes),
     },
     "expectedUniqueFigures": len(refs),
-    "expectedPngFigures": len(png),
+    "expectedPngOrRasterFigures": len(png),
+    "expectedLegacyPngFigures": len(legacy_png),
+    "expectedWebpFigures": len(v246_webp),
     "expectedSvgFigures": len(svg),
-    "v246PhotoFigures": len(v246_png),
+    "v246PhotoFigures": len(v246_webp),
+    "v246PhotoFormat": "webp",
+    "v246PhotoCredits": {
+        "count": len(photo_credits),
+        "apkResourcePath": credits_apk_path,
+        "aabResourcePath": credits_aab_path,
+        "ids": [x["id"] for x in photo_credits],
+        "requiredModificationNotice": "resized and converted to WebP",
+    },
     "v246SvgFigures": len(v246_svg),
     "apk": {
         "path": str(apk),
@@ -178,6 +237,8 @@ report = {
             "svg": apk_svg_resolved,
         },
         "resolvedFileEntriesPresent": len(apk_paths) - len(apk_missing_file),
+        "v246WebpResolved": len(v246_webp) - len(apk_v246_wrong_extension),
+        "v246WrongExtension": apk_v246_wrong_extension,
         "missingFromResourcesArsc": apk_missing_table,
         "missingResolvedFileEntries": apk_missing_file,
         "resolvedResourcePaths": apk_paths,
@@ -198,6 +259,8 @@ report = {
             "png": aab_png_files,
             "svg": aab_svg_files,
         },
+        "v246WebpFiles": len(v246_webp) - len(aab_v246_wrong_extension),
+        "v246WrongExtension": aab_v246_wrong_extension,
         "missingBaseModuleFileEntries": aab_missing_file,
     },
     "gate": "PASS",
