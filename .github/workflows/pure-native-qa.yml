@@ -1658,6 +1658,11 @@ jobs:
               output_bytes=output.read_bytes()
               assert len(output_bytes) > 1024, (item["id"],len(output_bytes))
               output_sha=hashlib.sha256(output_bytes).hexdigest()
+              expected_output=item.get("expected_output_sha256")
+              assert expected_output, ("missing pinned output hash",item["id"])
+              assert output_sha==expected_output, (
+                  item["id"],"output-sha256",output_sha,expected_output
+              )
               audit.append({
                   "id":item["id"],
                   "sourceUrl":item["url"],
@@ -1669,12 +1674,15 @@ jobs:
                   "output":str(output),
                   "outputBytes":len(output_bytes),
                   "outputSha256":output_sha,
+                  "expectedOutputSha256":expected_output,
               })
 
           report={
               "status":"PASS",
               "count":len(audit),
               "unpinnedSourceHashes":sum(1 for x in audit if not x["expectedSourceSha256"]),
+              "unpinnedOutputHashes":sum(1 for x in audit if not x["expectedOutputSha256"]),
+              "pinningPolicy":"application WebP output SHA-256 is authoritative; Wikimedia thumbnail transport bytes are observational",
               "photos":audit,
           }
           Path("V246_VISUAL_PHOTO_AUDIT.json").write_text(
