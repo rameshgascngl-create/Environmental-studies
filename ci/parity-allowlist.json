@@ -54,12 +54,13 @@
     "openTopics": []
   },
   "u2l1": {
-    "status": "OPEN",
-    "reason": "English has one additional ecosystem energy/nutrient overview diagram. The nearest Tamil ecosystem SVG covers the same broad mechanism, but whether that semantic consolidation is acceptable remains a user decision.",
+    "status": "ACCEPTED",
+    "reason": "The original English overview is an intentional extra reinforcement; the same concept is covered in Tamil by the matched ecosystem plate and the new bilingual v2.4.6 diagram.",
     "matchedTopics": [
       {
         "topic": "energy flow and nutrient cycling",
         "english": [
+          "fig_005_u02_en",
           "fig_006_u02_en"
         ],
         "tamil": [
@@ -67,20 +68,12 @@
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "ecosystem energy entry and nutrient recycling overview",
-        "english": [
-          "fig_005_u02_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
+    "openTopics": [],
+    "classification": "SEMANTIC_PARITY_WITH_INTENTIONAL_ENGLISH_REINFORCEMENT",
     "extraEnglishFigure": "fig_005_u02_en",
     "nearestTamilFigure": "sci_u02_l21_ecosystem_ta",
-    "recommendation": "USER_DECISION_REQUIRED",
-    "recommendationReason": "Do not auto-close; the unmatched English overview remains visible beside the nearest Tamil ecosystem plate for review."
+    "recommendation": "ACCEPTED_AFTER_V246_BILINGUAL_ATLAS",
+    "recommendationReason": "The original English overview is an intentional extra reinforcement; the same concept is covered in Tamil by the matched ecosystem plate and the new bilingual v2.4.6 diagram."
   },
   "u2l2": {
     "status": "BALANCED",
@@ -131,8 +124,8 @@
     "openTopics": []
   },
   "u2l5": {
-    "status": "OPEN",
-    "reason": "English has one additional rainfall/runoff/infiltration diagram. The nearest Tamil water-cycle/recharge plates overlap semantically, but consolidation remains a user decision.",
+    "status": "ACCEPTED",
+    "reason": "The original English runoff/infiltration plate is an intentional extra reinforcement; the same rainfall-partition/recharge concept is covered in Tamil by the matched recharge plate and the new bilingual v2.4.6 diagram.",
     "matchedTopics": [
       {
         "topic": "water cycle",
@@ -146,6 +139,7 @@
       {
         "topic": "watershed and groundwater recharge",
         "english": [
+          "fig_014_u02_en",
           "fig_015_u02_en"
         ],
         "tamil": [
@@ -153,20 +147,12 @@
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "rainfall partition into runoff infiltration and recharge",
-        "english": [
-          "fig_014_u02_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
+    "openTopics": [],
+    "classification": "SEMANTIC_PARITY_WITH_INTENTIONAL_ENGLISH_REINFORCEMENT",
     "extraEnglishFigure": "fig_014_u02_en",
     "nearestTamilFigure": "sci_u02_l25_recharge_ta",
-    "recommendation": "USER_DECISION_REQUIRED",
-    "recommendationReason": "Do not auto-close; show the unmatched English runoff/infiltration plate beside the closest Tamil recharge plate."
+    "recommendation": "ACCEPTED_AFTER_V246_BILINGUAL_ATLAS",
+    "recommendationReason": "The original English runoff/infiltration plate is an intentional extra reinforcement; the same rainfall-partition/recharge concept is covered in Tamil by the matched recharge plate and the new bilingual v2.4.6 diagram."
   },
   "u2l6": {
     "status": "BALANCED",
@@ -372,12 +358,13 @@
     "openTopics": []
   },
   "u4l6": {
-    "status": "OPEN",
-    "reason": "English retains a simplified waste-hierarchy diagram in addition to the matched hierarchy and segregation diagrams. Whether the simplified English reinforcement is redundant remains a user decision.",
+    "status": "ACCEPTED",
+    "reason": "The simplified English waste-hierarchy plate is retained as an intentional reinforcement; the hierarchy is fully covered in Tamil by the matched hierarchy SVG and the new bilingual v2.4.6 diagram.",
     "matchedTopics": [
       {
         "topic": "waste hierarchy",
         "english": [
+          "fig_038_u04_en",
           "fig_039_u04_en"
         ],
         "tamil": [
@@ -394,20 +381,12 @@
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "simplified waste hierarchy prevention to disposal",
-        "english": [
-          "fig_038_u04_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
+    "openTopics": [],
+    "classification": "SEMANTIC_PARITY_WITH_INTENTIONAL_ENGLISH_REINFORCEMENT",
     "extraEnglishFigure": "fig_038_u04_en",
     "nearestTamilFigure": "sci_u04_l46_hierarchy_ta",
-    "recommendation": "USER_DECISION_REQUIRED",
-    "recommendationReason": "Do not auto-close; show the simplified English hierarchy beside the Tamil hierarchy plate."
+    "recommendation": "ACCEPTED_AFTER_V246_BILINGUAL_ATLAS",
+    "recommendationReason": "The simplified English waste-hierarchy plate is retained as an intentional reinforcement; the hierarchy is fully covered in Tamil by the matched hierarchy SVG and the new bilingual v2.4.6 diagram."
   },
   "u4l7": {
     "status": "BALANCED",
@@ -442,12 +421,13 @@
     "openTopics": []
   },
   "u5l1": {
-    "status": "OPEN",
-    "reason": "English retains an additional simplified greenhouse-effect diagram beyond the bilingual SVG pair. Whether it is pedagogically redundant remains a user decision.",
+    "status": "ACCEPTED",
+    "reason": "The simplified English greenhouse-effect plate is retained as an intentional reinforcement; the concept is fully covered in Tamil by the matched greenhouse-effect SVG and the new bilingual v2.4.6 diagram.",
     "matchedTopics": [
       {
         "topic": "greenhouse effect infrared absorption and re-emission",
         "english": [
+          "fig_046_u05_en",
           "sci_u05_l51_en"
         ],
         "tamil": [
@@ -455,20 +435,12 @@
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "simplified greenhouse effect",
-        "english": [
-          "fig_046_u05_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
+    "openTopics": [],
+    "classification": "SEMANTIC_PARITY_WITH_INTENTIONAL_ENGLISH_REINFORCEMENT",
     "extraEnglishFigure": "fig_046_u05_en",
     "nearestTamilFigure": "sci_u05_l51_ta",
-    "recommendation": "USER_DECISION_REQUIRED",
-    "recommendationReason": "Do not auto-close; show the simplified English greenhouse-effect figure beside the Tamil greenhouse-effect SVG."
+    "recommendation": "ACCEPTED_AFTER_V246_BILINGUAL_ATLAS",
+    "recommendationReason": "The simplified English greenhouse-effect plate is retained as an intentional reinforcement; the concept is fully covered in Tamil by the matched greenhouse-effect SVG and the new bilingual v2.4.6 diagram."
   },
   "u5l2": {
     "status": "BALANCED",

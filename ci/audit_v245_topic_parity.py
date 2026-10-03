@@ -37,7 +37,8 @@ assert set(registry) == set(lessons), (
 )
 
 resources = {
-    p.stem for p in DRAWABLE.glob("fig_*_en.png")
+    p.stem for p in DRAWABLE.glob("fig_*")
+    if p.suffix.lower() in (".png", ".webp", ".jpg", ".jpeg")
 } | {
     p.stem for p in RAW.glob("sci_*.svg")
 }
@@ -56,6 +57,16 @@ for lid in sorted(lessons):
     ta = figures(lesson, "tamil")
     actual_en = {x["id"] for x in en if x["id"]}
     actual_ta = {x["id"] for x in ta if x["id"]}
+    registry_en = {
+        ref for ref in actual_en
+        if not ref.startswith(("sci_v246_", "fig_v246_"))
+    }
+    registry_ta = {
+        ref for ref in actual_ta
+        if not ref.startswith(("sci_v246_", "fig_v246_"))
+    }
+    v246_en = actual_en - registry_en
+    v246_ta = actual_ta - registry_ta
 
     for lang, items in (("english", en), ("tamil", ta)):
         for item in items:
@@ -77,19 +88,53 @@ for lid in sorted(lessons):
         registry_errors.append({"lessonId": lid, "error": "duplicate English registry reference"})
     if len(mapped_ta) != len(set(mapped_ta)):
         registry_errors.append({"lessonId": lid, "error": "duplicate Tamil registry reference"})
-    if set(mapped_en) != actual_en:
+    if set(mapped_en) != registry_en:
         registry_errors.append({
             "lessonId": lid,
-            "error": "English topic map does not equal lesson references",
+            "error": "English legacy topic map does not equal legacy lesson references",
             "mapped": sorted(set(mapped_en)),
-            "actual": sorted(actual_en),
+            "actual": sorted(registry_en),
         })
-    if set(mapped_ta) != actual_ta:
+    if set(mapped_ta) != registry_ta:
         registry_errors.append({
             "lessonId": lid,
-            "error": "Tamil topic map does not equal lesson references",
+            "error": "Tamil legacy topic map does not equal legacy lesson references",
             "mapped": sorted(set(mapped_ta)),
-            "actual": sorted(actual_ta),
+            "actual": sorted(registry_ta),
+        })
+
+    # v2.4.6 atlas parity is deterministic by resource naming and is audited
+    # after the atlas is applied. Shared photographs must occur in both
+    # languages; SVGs must form exact _e / _t pairs.
+    v246_photo_en = {ref for ref in v246_en if ref.startswith("fig_v246_")}
+    v246_photo_ta = {ref for ref in v246_ta if ref.startswith("fig_v246_")}
+    if v246_photo_en != v246_photo_ta:
+        registry_errors.append({
+            "lessonId": lid,
+            "error": "v2.4.6 shared photograph parity mismatch",
+            "english": sorted(v246_photo_en),
+            "tamil": sorted(v246_photo_ta),
+        })
+
+    v246_svg_en = {ref for ref in v246_en if ref.startswith("sci_v246_")}
+    v246_svg_ta = {ref for ref in v246_ta if ref.startswith("sci_v246_")}
+    bad_v246_en = sorted(ref for ref in v246_svg_en if not ref.endswith("_e"))
+    bad_v246_ta = sorted(ref for ref in v246_svg_ta if not ref.endswith("_t"))
+    if bad_v246_en or bad_v246_ta:
+        registry_errors.append({
+            "lessonId": lid,
+            "error": "v2.4.6 SVG suffix contract mismatch",
+            "english": bad_v246_en,
+            "tamil": bad_v246_ta,
+        })
+    v246_svg_en_keys = {ref[:-2] for ref in v246_svg_en if ref.endswith("_e")}
+    v246_svg_ta_keys = {ref[:-2] for ref in v246_svg_ta if ref.endswith("_t")}
+    if v246_svg_en_keys != v246_svg_ta_keys:
+        registry_errors.append({
+            "lessonId": lid,
+            "error": "v2.4.6 SVG bilingual pair mismatch",
+            "englishOnly": sorted(v246_svg_en_keys - v246_svg_ta_keys),
+            "tamilOnly": sorted(v246_svg_ta_keys - v246_svg_en_keys),
         })
 
     for group in matched:

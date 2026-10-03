@@ -1583,17 +1583,6 @@ jobs:
           print("V246_MOBILE_LAYOUT_PASS")
           PY
 
-      - name: Audit per-lesson diagram-topic parity
-        if: env.RELEASEQA_MODE == 'full'
-        id: topic_parity
-        continue-on-error: true
-        working-directory: native-build/Environmental-Studies-v2.0.0-native
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m py_compile ../../ci/audit_v245_topic_parity.py
-          python ../../ci/audit_v245_topic_parity.py
-
       - name: Apply and audit v2.4.6 concept visual atlas
         if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -1875,6 +1864,17 @@ jobs:
           assert all(x["modification"]=="resized and converted to WebP" for x in credits)
           print("V246_PHOTO_ATTRIBUTION_PASS")
           PYATTR
+
+      - name: Audit per-lesson diagram-topic parity
+        if: env.RELEASEQA_MODE == 'full'
+        id: topic_parity
+        continue-on-error: true
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/audit_v245_topic_parity.py
+          python ../../ci/audit_v245_topic_parity.py
 
       - name: Configure QA-only releaseQa device-evidence variant
         working-directory: native-build/Environmental-Studies-v2.0.0-native
