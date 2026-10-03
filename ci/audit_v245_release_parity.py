@@ -118,6 +118,7 @@ for lid in mismatch_ids:
         "reason":entry.get("reason",""),
         "classification":entry.get("classification",""),
         "extraEnglishFigure":entry.get("extraEnglishFigure",""),
+        "nearestTamilFigure":entry.get("nearestTamilFigure",""),
         "recommendation":entry.get("recommendation",""),
         "recommendationReason":entry.get("recommendationReason",""),
     })
@@ -128,6 +129,76 @@ open_ids=sorted(
 accepted_ids=sorted(
     lid for lid in mismatch_ids if registry.get(lid,{}).get("status")=="ACCEPTED"
 )
+
+# Independent packaged-artifact check for the v2.4.6 WebP photograph layer.
+all_figure_ids = {
+    figure
+    for row in per_lesson
+    for figure in row["englishFigures"] + row["tamilFigures"]
+}
+v246_photo_ids = sorted(x for x in all_figure_ids if x.startswith("fig_v246_"))
+v246_photo_errors = []
+v246_apk_paths = {}
+v246_aab_paths = {}
+
+with zipfile.ZipFile(apk) as z:
+    apk_entries = set(z.namelist())
+with zipfile.ZipFile(aab) as z:
+    aab_entries = set(z.namelist())
+
+for name in v246_photo_ids:
+    apk_path = resource_file_path("drawable", name)
+    v246_apk_paths[name] = apk_path
+    if not apk_path:
+        v246_photo_errors.append(f"{name}: missing APK resource-table resolution")
+    elif apk_path not in apk_entries:
+        v246_photo_errors.append(f"{name}: APK resolved file missing: {apk_path}")
+    elif Path(apk_path).suffix.lower() != ".webp":
+        v246_photo_errors.append(f"{name}: APK resource is not WebP: {apk_path}")
+
+    aab_matches = [
+        p for p in aab_entries
+        if p.startswith("base/res/drawable")
+        and Path(p).stem == name
+        and Path(p).suffix.lower() == ".webp"
+    ]
+    if len(aab_matches) != 1:
+        v246_photo_errors.append(f"{name}: expected one AAB WebP, found {aab_matches}")
+    else:
+        v246_aab_paths[name] = aab_matches[0]
+
+photo_credits = []
+if v246_photo_ids:
+    credits_apk_path = resource_file_path("raw", "v246_photo_credits")
+    if not credits_apk_path or credits_apk_path not in apk_entries:
+        v246_photo_errors.append("packaged APK photo-credit resource missing")
+    else:
+        with zipfile.ZipFile(apk) as z:
+            apk_credit_bytes = z.read(credits_apk_path)
+        aab_credit_path = "base/res/raw/v246_photo_credits.json"
+        if aab_credit_path not in aab_entries:
+            v246_photo_errors.append("packaged AAB photo-credit resource missing")
+        else:
+            with zipfile.ZipFile(aab) as z:
+                aab_credit_bytes = z.read(aab_credit_path)
+            if apk_credit_bytes != aab_credit_bytes:
+                v246_photo_errors.append("APK/AAB photo-credit resources differ")
+            else:
+                photo_credits = json.loads(apk_credit_bytes.decode("utf-8"))
+                credit_ids = {x.get("id") for x in photo_credits}
+                if credit_ids != set(v246_photo_ids):
+                    v246_photo_errors.append(
+                        f"photo-credit ids differ: credits={sorted(credit_ids)} figures={v246_photo_ids}"
+                    )
+                for credit in photo_credits:
+                    required = ("title","author","sourceUrl","licence","licenceUrl","modification")
+                    missing = [k for k in required if not str(credit.get(k,"")).strip()]
+                    if missing:
+                        v246_photo_errors.append(f"{credit.get('id')}: missing credit fields {missing}")
+                    if credit.get("modification") != "resized and converted to WebP":
+                        v246_photo_errors.append(f"{credit.get('id')}: modification notice mismatch")
+                    if "BY-SA" in str(credit.get("licence","")) and "ShareAlike" not in str(credit.get("shareAlikeNotice","")):
+                        v246_photo_errors.append(f"{credit.get('id')}: ShareAlike notice missing")
 
 privacy=data["privacy"]
 report={
@@ -149,6 +220,14 @@ report={
     },
     "perLessonFigures":per_lesson,
     "mismatches":mismatch_rows,
+    "v246WebpIntegrity":{
+        "figureCount":len(v246_photo_ids),
+        "figureIds":v246_photo_ids,
+        "apkResolvedPaths":v246_apk_paths,
+        "aabWebpPaths":v246_aab_paths,
+        "creditEntryCount":len(photo_credits),
+        "errors":v246_photo_errors,
+    },
     "registry":{
         "missingMismatchEntries":missing_registry,
         "staleMismatchEntries":stale_registry,
@@ -176,12 +255,15 @@ report={
     "privacyParagraphs":{"english":len(privacy["english"]),"tamil":len(privacy["tamil"])},
     "creditLine":privacy["credit"][0],
     "gate":(
-        "FAIL_REGISTRY" if (missing_registry or stale_registry or invalid_status)
+        "FAIL_V246_WEBP_OR_CREDITS" if v246_photo_errors
+        else "FAIL_REGISTRY" if (missing_registry or stale_registry or invalid_status)
         else "OPEN_PARITY" if open_ids
         else "PASS"
     ),
 }
 OUT.write_text(json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
 print(OUT.read_text(encoding="utf-8"))
+if v246_photo_errors:
+    sys.exit(7)
 if missing_registry or stale_registry or invalid_status:
     sys.exit(8)
