@@ -2576,11 +2576,20 @@ jobs:
               adb exec-out run-as "$PACKAGE" cat files/tts-qa/status.txt > tts-smoke-status.txt || true
             fi
             if [ ! -s tts-smoke-status.txt ]; then
-              {
-                echo "tts_environment=ENGINE_PRESENT_TEST_FAILED"
-                echo "tts_gap=NOT_A_PASS"
-                echo "physical_device_tts_required=true"
-              } > tts-smoke-status.txt
+              if grep -Fq 'Default TTS image must support English' tts-instrumentation.txt; then
+                {
+                  echo "tts_environment=EMULATOR_ENGINE_LANGUAGE_UNAVAILABLE"
+                  echo "tts_gap=NOT_A_PASS"
+                  echo "tts_failure=english_language_unavailable_in_ci_engine"
+                  echo "physical_device_tts_required=true"
+                } > tts-smoke-status.txt
+              else
+                {
+                  echo "tts_environment=ENGINE_PRESENT_TEST_FAILED"
+                  echo "tts_gap=NOT_A_PASS"
+                  echo "physical_device_tts_required=true"
+                } > tts-smoke-status.txt
+              fi
             fi
           else
             {
@@ -2717,6 +2726,18 @@ jobs:
             KEYSTORE="$RUNNER_TEMP/environmental-studies-release.keystore"
             printf '%s' "$ENVSTUDIES_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
             chmod 600 "$KEYSTORE"
+            # releaseQa uses the production package ID with a QA/debug signer.
+            # Baseline Profile generation installs nonMinifiedRelease under the same
+            # package ID with the production signer, so remove the already-installed
+            # releaseQa target/test packages before switching signer identities.
+            if [ -n "${TEST_PACKAGE:-}" ]; then
+              adb uninstall "$TEST_PACKAGE" >/dev/null 2>&1 || true
+            fi
+            adb uninstall "$PACKAGE" >/dev/null 2>&1 || true
+            if adb shell pm list packages | tr -d '\r' | grep -Fxq "package:$PACKAGE"; then
+              echo "Baseline Profile precondition failed: $PACKAGE remains installed with the releaseQa signer." >&2
+              exit 13
+            fi
             ENVSTUDIES_KEYSTORE_PATH="$KEYSTORE" gradle --no-daemon :app:generateBaselineProfile \
               -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
             echo "baseline_profile_device_generation=PASS" >> baseline-profile-status.txt
@@ -2773,7 +2794,7 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-logcat.txt
           if-no-files-found: warn
 
-      - name: Verify engine-present bilingual TTS result
+      - name: Classify bilingual TTS evidence
         if: env.RELEASEQA_MODE == 'full'
         id: tts_engine
         continue-on-error: true
@@ -2782,11 +2803,274 @@ jobs:
         run: |
           set -euo pipefail
           test -s tts-smoke-status.txt
-          grep -Fx 'tts_environment=ENGINE_PRESENT' tts-smoke-status.txt
-          grep -Fx 'tts_init=PASS' tts-smoke-status.txt
-          grep -Fx 'english_tts=PASS' tts-smoke-status.txt
-          grep -Fx 'tamil_voice_available=true' tts-smoke-status.txt
-          grep -Fx 'tamil_tts=PASS' tts-smoke-status.txt
+          if grep -Fxq 'tts_environment=ENGINE_PRESENT' tts-smoke-status.txt; then
+            grep -Fx 'tts_init=PASS' tts-smoke-status.txt
+            grep -Fx 'english_tts=PASS' tts-smoke-status.txt
+            grep -Fx 'tamil_voice_available=true' tts-smoke-status.txt
+            grep -Fx 'tamil_tts=PASS' tts-smoke-status.txt
+            echo "tts_ci_classification=BILINGUAL_ENGINE_PASS"
+          elif grep -Eq '^tts_environment=(EMULATOR_ENGINE_UNAVAILABLE|EMULATOR_ENGINE_LANGUAGE_UNAVAILABLE)
+
+      - name: Upload releaseQa device evidence
+        if: env.RELEASEQA_MODE == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-releaseQa-DEVICE-EVIDENCE
+          path: |
+            native-build/Environmental-Studies-v2.0.0-native/app/build/outputs/apk/releaseQa/
+            native-build/Environmental-Studies-v2.0.0-native/qa-releaseqa-screens/
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-build-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-badging.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-certificate.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-target-dex-strings.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/fig038-u4l6-screen.png
+            native-build/Environmental-Studies-v2.0.0-native/qa-pdf-export/
+            native-build/Environmental-Studies-v2.0.0-native/pdf-export-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/tts-smoke-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/tts-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/tts-engine-packages.txt
+          if-no-files-found: error
+
+      - name: Upload AndroidSVG Tamil render evidence
+        if: env.RELEASEQA_MODE == 'full'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Environmental-Studies-v2.4.5-Tamil-SVG-Renders
+          path: |
+            native-build/Environmental-Studies-v2.0.0-native/qa-svg-androidsvg/
+            native-build/Environmental-Studies-v2.0.0-native/qa-v246-svg-androidsvg/
+            native-build/Environmental-Studies-v2.0.0-native/v246-androidsvg-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/v246-androidsvg-emulator-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_CI_AUDIT.json
+            native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_SVG_LAYOUT.json
+            native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_TRANSFORM_SHA256.txt
+            native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_PHOTO_AUDIT.json
+            native-build/Environmental-Studies-v2.0.0-native/androidsvg-emulator-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/androidsvg-render-package.txt
+            native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
+          if-no-files-found: error
+
+      - name: Inspect v2.4.5 package identity and offline contract
+        if: env.RELEASEQA_MODE == 'full'
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -f "$DEBUG_APK"
+          test -f "$RELEASE_APK"
+
+          AAPT="$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump badging "$DEBUG_APK" | tee qa-badging-debug.txt
+          "$AAPT" dump permissions "$DEBUG_APK" | tee qa-permissions-debug.txt
+          "$AAPT" dump badging "$RELEASE_APK" | tee qa-badging-release.txt
+          "$AAPT" dump permissions "$RELEASE_APK" | tee qa-permissions-release.txt
+          "$AAPT" dump resources "$DEBUG_APK" | tee qa-resources-debug.txt
+          "$AAPT" dump resources "$RELEASE_APK" | tee qa-resources-release.txt
+          "$AAPT" dump xmltree "$RELEASE_APK" AndroidManifest.xml | tee qa-manifest-xmltree-release.txt
+
+          grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging-debug.txt
+          grep -q "versionCode='20405'" qa-badging-debug.txt
+          grep -q "versionName='2.4.5-debug'" qa-badging-debug.txt
+
+          grep -q "package: name='edu.gascnagercoil.environmentalsciences'" qa-badging-release.txt
+          grep -q "versionCode='20405'" qa-badging-release.txt
+          grep -q "versionName='2.4.5'" qa-badging-release.txt
+          ! grep -q 'application-debuggable' qa-badging-release.txt
+
+          ! grep -q 'android.permission.INTERNET' qa-permissions-release.txt
+          ! grep -q '^uses-permission:' qa-permissions-release.txt
+          ! grep -q 'androidx.compose.ui.tooling.PreviewActivity' qa-manifest-xmltree-release.txt
+          ! grep -q 'androidx.activity.ComponentActivity' qa-manifest-xmltree-release.txt
+          ! grep -q 'androidx.profileinstaller.ProfileInstallReceiver' qa-manifest-xmltree-release.txt
+
+          MERGED_MANIFEST="$(find app/build/intermediates -type f -name AndroidManifest.xml | grep -E '/(merged_manifest|merged_manifests|packaged_manifests)/release/' | head -n1 || true)"
+          test -n "$MERGED_MANIFEST"
+          cp "$MERGED_MANIFEST" qa-merged-release-AndroidManifest.xml
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root=ET.parse("qa-merged-release-AndroidManifest.xml").getroot()
+          A="{http://schemas.android.com/apk/res/android}"
+          assert not root.findall("uses-permission"), [x.attrib for x in root.findall("uses-permission")]
+          tts_actions=[x.get(A+"name") for x in root.findall("./queries/intent/action")]
+          assert "android.intent.action.TTS_SERVICE" in tts_actions, tts_actions
+          app=root.find("application")
+          assert app is not None
+          assert app.get(A+"allowBackup")=="false"
+          assert app.get(A+"usesCleartextTraffic")=="false"
+          exported=[]
+          for tag in ("activity","activity-alias","service","receiver","provider"):
+              for x in app.findall(tag):
+                  if x.get(A+"exported")=="true":
+                      exported.append((tag,x.get(A+"name")))
+          assert exported==[("activity","edu.gascnagercoil.environmentalsciences.MainActivity")], exported
+          PY
+
+          if grep -Eq ':drawable/fig_[0-9]+_u[0-9]+_ta([[:space:]]|$)' qa-resources-release.txt; then
+            echo "Stale Tamil raster teaching plate resource remains in release APK" >&2
+            exit 5
+          fi
+          grep -q ':raw/androidsvg_apache_2_license' qa-resources-release.txt
+          grep -q ':raw/noto_sans_tamil_ofl' qa-resources-release.txt
+
+          if zipinfo -1 "$RELEASE_APK" | grep -Ei "^assets/.*[.](html|js|css)$"; then
+            echo "Unexpected web payload in release package" >&2
+            exit 3
+          fi
+
+          rm -rf /tmp/v245-dex
+          mkdir -p /tmp/v245-dex
+          while read -r DEX; do
+            unzip -p "$RELEASE_APK" "$DEX" > "/tmp/v245-dex/$(basename "$DEX")"
+          done < <(zipinfo -1 "$RELEASE_APK" | grep -E '^classes([0-9]+)?[.]dex$')
+          strings /tmp/v245-dex/*.dex > qa-dex-strings-release.txt
+          ! grep -E 'android/webkit/WebView|Landroid/webkit/WebView;|okhttp3/|retrofit2/|com/google/firebase/analytics|com/google/android/gms/analytics' qa-dex-strings-release.txt
+          ! grep -R -n -E 'android[.]webkit[.]WebView|WebView[(]|HttpURLConnection|java[.]net[.]URL|okhttp|retrofit|firebase[.]analytics|google[.]analytics' app/src/main/java
+
+          BOOK_SHA=$(sha256sum app/src/main/res/raw/book_content.json | awk '{print $1}')
+          {
+            echo "architecture=pure_native_android"
+            echo "webview=absent"
+            echo "internet_permission=absent"
+            echo "release_application_id=edu.gascnagercoil.environmentalsciences"
+            echo "version_name=2.4.5"
+            echo "version_code=20405"
+            echo "book_nativeVersion=2.4.5"
+            echo "book_schemaVersion=2"
+            echo "book_content_sha256=$BOOK_SHA"
+            echo "allowBackup=false"
+            echo "usesCleartextTraffic=false"
+            echo "minifyEnabled=true"
+            echo "shrinkResources=true"
+            echo "release_debuggable=false"
+            echo "release_permissions=0"
+            echo "release_exported_components=MainActivity_only"
+            echo "release_webview_dex_scan=absent"
+            echo "release_analytics_dex_scan=absent"
+            echo "APK_SHA256=$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
+          } | tee qa-evidence-v245.txt
+
+      - name: Prepare v2.4.5 QA artefact
+        if: env.RELEASEQA_MODE == 'full'
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf qa-artifact
+          mkdir -p qa-artifact
+          DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          RELEASE_QA_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.5-DEVICE-QA.apk
+          cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
+          cp "$RELEASE_QA_APK" qa-artifact/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
+          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
+          cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt release-privacy-dex-status.txt release-privacy-dex-urls.txt releaseqa-runtime-keep-match-summary.txt releaseqa-genuine-missing-runtime-classes.txt qa-artifact/
+          if [ -f release-certificate.txt ]; then cp release-certificate.txt qa-artifact/; fi
+          cp V240_STATIC_FINDINGS.json V240_SVG_RENAME_MAP.json V240_RELEASE_IDENTITY_AUDIT.json qa-artifact/
+          cp V240_B_ARCHITECTURE_FINDINGS.json V240_C1_IMAGE_DECODE_AUDIT.json V240_C2_SVG_LEGIBILITY_AUDIT.json V240_C3_TAMIL_FONT_AUDIT.json V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
+          cp V241_DEVICE_FIGURE_QA_AUDIT.json V242_TAMIL_VISUAL_ICON_AUDIT.json V243_LIVING_ENVIRONMENT_AUDIT.json V243_VISUAL_ATLAS_COMPLETION_AUDIT.json V244_RELEASE_READINESS_AUDIT.json qa-artifact/
+          cp V245_RELEASE_CANDIDATE_AUDIT.json V245_OPTION_DIFF.json V245_QUIZ_VALIDATION.json V245_PARITY_AUDIT.json qa-artifact/
+          cp V245_INTERMEDIATE_STRUCTURE_AUDIT.json qa-artifact/
+          cp V245_UI_POLISH_AUDIT.json qa-artifact/
+          cp V245_PORTRAIT_UI_AUDIT.json qa-artifact/
+          cp V245_LESSON_FIGURE_UI_AUDIT.json qa-artifact/
+          cp V245_ITEM2_ORPHAN_FIGURES.json qa-artifact/
+          cp V245_ITEM3_TAMIL_PARITY_AUDIT.json qa-artifact/
+          cp V245_ITEM4_QUIZ_PUNCTUATION_AUDIT.json qa-artifact/
+          cp V245_ITEM5_FIGURE_ROBUSTNESS_AUDIT.json qa-artifact/
+          cp V245_ITEM6_PDF_EXPORT_AUDIT.json qa-artifact/
+          cp V245_TTS_VISIBILITY_AUDIT.json qa-artifact/
+          cp V245_FIG038_GLYPH_FIX_AUDIT.json qa-artifact/
+          cp V245_RELEASE_RESOURCE_KEEP_AUDIT.json qa-artifact/
+          cp V245_RELEASE_RESOURCE_INTEGRITY.json qa-artifact/
+          cp V245_FIG038_RELEASE_VERIFY.json qa-artifact/
+          cp fig038-native-release.png qa-artifact/
+          cp V245_TOPIC_PARITY_AUDIT.json qa-artifact/
+          cp ../../ci/parity-allowlist.json qa-artifact/
+          cp -R qa-pdf-export qa-artifact/pdf-export-qa
+          cp pdf-export-status.txt pdf-export-instrumentation.txt tts-instrumentation.txt tts-smoke-status.txt qa-artifact/
+          if [ -f tts-engine-packages.txt ]; then cp tts-engine-packages.txt qa-artifact/; fi
+          if [ -f ../../privacy-url-status.txt ]; then cp ../../privacy-url-status.txt qa-artifact/; fi
+          cp fig038-screen-instrumentation.txt fig038-screen-status.txt fig038-u4l6-screen.png qa-artifact/
+          cp releaseqa-build-status.txt releaseqa-badging.txt releaseqa-certificate.txt releaseqa-target-dex-strings.txt releaseqa-lesson-status.txt releaseqa-lesson-instrumentation.txt releaseqa-lesson-logcat.txt qa-artifact/
+          cp -R qa-releaseqa-screens qa-artifact/releaseqa-screens
+          cp V245_SVG_LAYOUT_BEFORE.json V245_SVG_LAYOUT_AFTER.json V245_TRANSFORM_SHA256.txt qa-artifact/
+          cp ../../FACTS_TO_VERIFY.md ../../V230_PROVENANCE.md ../../V230_LEARNING_EXPERIENCE_AUDIT.md qa-artifact/
+          cp -R qa-svg-androidsvg qa-artifact/androidsvg-tamil-renders
+          if [ -f V246_VISUAL_ATLAS_CI_AUDIT.json ]; then
+            cp V246_VISUAL_ATLAS_CI_AUDIT.json V246_VISUAL_ATLAS_SVG_LAYOUT.json V246_VISUAL_ATLAS_TRANSFORM_SHA256.txt V246_VISUAL_PHOTO_AUDIT.json qa-artifact/
+          fi
+          if [ -d qa-v246-svg-androidsvg ]; then
+            cp -R qa-v246-svg-androidsvg qa-artifact/v246-androidsvg-tamil-renders
+            cp v246-androidsvg-instrumentation.txt v246-androidsvg-emulator-status.txt qa-artifact/
+          fi
+          if [ -d app/build/compose_compiler ]; then
+            cp -r app/build/compose_compiler qa-artifact/compose_compiler
+          fi
+          tar -czf qa-artifact/v245-reconstructed-source.tar.gz \
+            app/src/main/java app/src/main/res app/src/androidTest app/build.gradle.kts app/proguard-rules.pro \
+            app/proguard-releaseqa-target.pro app/proguard-releaseqa-androidtest.pro \
+            baselineprofile settings.gradle.kts build.gradle.kts gradle.properties
+          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v245_release_candidate.json
+
+          UNSIGNED_AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1 || true)"
+          if [ -n "$UNSIGNED_AAB" ] && [ -f "$UNSIGNED_AAB" ]; then
+            cp "$UNSIGNED_AAB" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-AAB-QA.aab
+          fi
+
+          if grep -q 'signed_release_available=true' release-signing-status.txt; then
+            SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+            AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
+            cp "$SIGNED_APK" qa-artifact/Environmental-Studies-v2.4.5-RELEASE.apk
+            cp "$AAB" qa-artifact/Environmental-Studies-v2.4.5-RELEASE.aab
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: env.RELEASEQA_MODE == 'full'
+        with:
+          name: Environmental-Studies-v2.4.5-RELEASE-CANDIDATE-QA
+          path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
+          if-no-files-found: error
+
+      - name: Enforce final release-candidate gates
+        if: always() && env.RELEASEQA_MODE == 'full'
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          if [ "${{ steps.privacy_policy.outcome }}" != "success" ]; then
+            echo "RELEASE-CANDIDATE ONLY: stable public Privacy Policy endpoint is not yet available."
+            failed=1
+          fi
+          if [ "${{ steps.item3_content.outcome }}" != "success" ]; then
+            echo "RELEASE-CANDIDATE ONLY: Item 3 Tamil content defects remain OPEN."
+            failed=1
+          fi
+          if [ "${{ steps.topic_parity.outcome }}" != "success" ]; then
+            echo "RELEASE-CANDIDATE ONLY: unresolved diagram-topic parity entries remain."
+            failed=1
+          fi
+          if [ "${{ steps.tts_engine.outcome }}" != "success" ]; then
+            echo "RELEASE-CANDIDATE ONLY: TTS evidence is neither a bilingual pass nor a documented CI-emulator limitation."
+            failed=1
+          fi
+          if [ "$failed" -ne 0 ]; then
+            echo "NOT FINAL"
+            exit 9
+          fi
+ tts-smoke-status.txt; then
+            grep -Fx 'tts_gap=NOT_A_PASS' tts-smoke-status.txt
+            grep -Fx 'physical_device_tts_required=true' tts-smoke-status.txt
+            echo "tts_ci_classification=DOCUMENTED_EMULATOR_LIMITATION"
+          else
+            echo "Unexpected TTS failure: neither a bilingual pass nor an approved emulator limitation." >&2
+            cat tts-smoke-status.txt >&2
+            exit 1
+          fi
 
       - name: Upload releaseQa device evidence
         if: env.RELEASEQA_MODE == 'full'
