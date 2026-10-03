@@ -186,6 +186,17 @@ for name, check in deleted_topic_checks.items():
         if ref not in ref_set:
             registry_errors.append({"topic": name, "error": f"required retained counterpart missing: {ref}"})
 
+decision_rows = [
+    {
+        "lessonId": lid,
+        "extraEnglishFigure": registry[lid].get("extraEnglishFigure", ""),
+        "nearestTamilFigure": registry[lid].get("nearestTamilFigure", ""),
+        "status": registry[lid].get("status", ""),
+        "reason": registry[lid].get("reason", ""),
+    }
+    for lid in open_entries
+]
+
 report = {
     "scope": "explicit per-lesson diagram-topic parity and resource integrity",
     "lessonCount": len(per_lesson),
@@ -194,6 +205,7 @@ report = {
     "balancedRegistryEntries": balanced_entries,
     "acceptedRegistryEntries": accepted_entries,
     "openRegistryEntries": open_entries,
+    "userDecisionRows": decision_rows,
     "perLesson": per_lesson,
     "blankFigureKeys": blank,
     "unresolvedFigureRefs": unresolved,
