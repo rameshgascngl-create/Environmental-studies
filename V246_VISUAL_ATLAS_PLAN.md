@@ -6,7 +6,7 @@ This phase enriches the validated 46-lesson bilingual academic corpus without ch
 ## Visual policy
 - Scientific mechanism/process explanation: vector SVG diagrams.
 - Real-world observation/context: authentic openly licensed educational photographs.
-- Target balance: approximately 70% diagrammatic teaching visuals and 30% photographic context over the complete app.
+- Visual mix is diagram-led; photographs are used only where real-world observation/context adds instructional value.
 - All visual resources are bundled for offline use; there is no runtime network dependency.
 
 ## Phase-1 additions
@@ -36,9 +36,9 @@ This phase enriches the validated 46-lesson bilingual academic corpus without ch
 2. All 112 generated SVGs must be well-formed XML.
 3. Source-level SVG layout audit must report no text overflow.
 4. Exactly 8 manifest photographs must be fetched and converted to valid WebP.
-5. Every photograph fetch is recorded with source SHA-256 and output SHA-256; after first green retrieval these source hashes are pinned in the manifest.
+5. Every photograph fetch records the observed transport SHA-256 and the packaged WebP SHA-256. Because Wikimedia thumbnail transport bytes can vary while decoding to the same image, the deterministic packaged WebP SHA-256 is pinned and enforced in the manifest.
 6. Release APK/AAB resource integrity must derive expected figure counts from packaged `book_content.json` rather than the old fixed v2.4.5 count.
-7. Existing frozen 46 Tamil-SVG AndroidSVG gate remains unchanged; new v2.4.6 SVGs use `_e`/`_t` suffixes and are audited separately.
+7. The frozen v2.4.5 AndroidSVG gate remains exactly 46 legacy Tamil plates (`*_ta`); new v2.4.6 SVGs use `_e`/`_t` suffixes and are rendered by a separate 56-plate Tamil atlas gate.
 8. Production package identity/signing remain untouched.
 
 ## Baseline
