@@ -6,6 +6,7 @@ on:
       - release/v2.4.5-rc-20261001
       - academic/v2.4.6-content-depth-20261003
       - correction/v2.4.6-mobile-layout-20261003
+      - visual/v2.4.6-concept-atlas-phase1-20261003
   workflow_dispatch:
     inputs:
       releaseqa_mode:
@@ -86,6 +87,13 @@ jobs:
               "ci/v245_accessibility_refinement.py",
               "ci/apply_v246_academic_content.py",
               "ci/apply_v246_mobile_layout_fix.py.gz.b64",
+              "ci/v246_visual_atlas.py.gz.b64.part1",
+              "ci/v246_visual_atlas.py.gz.b64.part2",
+              "ci/v246_visual_atlas.py.gz.b64.part3",
+              "ci/v246_visual_atlas.py.gz.b64.part4",
+              "ci/v246_visual_atlas.py.gz.b64.part5",
+              "ci/v246_visual_photo_manifest.json",
+              "V246_VISUAL_ATLAS_PLAN.md",
               "ci/v245_ui_polish/BrandExperience.patch",
               "ci/v245_ui_polish/VisualLearning.patch",
               "ci/v245_ui_polish/HomeScreens.patch",
@@ -1574,6 +1582,155 @@ jobs:
           print("V246_MOBILE_LAYOUT_PASS")
           PY
 
+      - name: Apply and audit v2.4.6 concept visual atlas
+        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003'
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp app/src/main/res/raw/book_content.json /tmp/book-content-pre-v246-visual-atlas.json
+
+          cat ../../ci/v246_visual_atlas.py.gz.b64.part* \
+            | base64 -d \
+            | gzip -dc > ../../ci/v246_visual_atlas.py
+          sha256sum ../../ci/v246_visual_atlas.py | tee V246_VISUAL_ATLAS_TRANSFORM_SHA256.txt
+          python -m py_compile ../../ci/v246_visual_atlas.py
+          python ../../ci/v246_visual_atlas.py
+
+          EN_FONT="$(fc-match -f '%{file}' 'Noto Sans' | head -n1)"
+          python ../../ci/audit_v245_svg_layout.py app/src/main/res/raw \
+            --ta-font app/src/main/res/font/noto_sans_tamil.ttf \
+            --en-font "$EN_FONT" \
+            --out V246_VISUAL_ATLAS_SVG_LAYOUT.json
+
+          python - <<'PY'
+          import hashlib
+          import json
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          before=json.loads(Path("/tmp/book-content-pre-v246-visual-atlas.json").read_text(encoding="utf-8"))
+          book_path=Path("app/src/main/res/raw/book_content.json")
+          after=json.loads(book_path.read_text(encoding="utf-8"))
+          layout=json.loads(Path("V246_VISUAL_ATLAS_SVG_LAYOUT.json").read_text(encoding="utf-8"))
+          manifest=json.loads(Path("../../ci/v246_visual_photo_manifest.json").read_text(encoding="utf-8"))
+
+          assert len(manifest)==8, len(manifest)
+          assert layout["overflowCount"]==0, [
+              (r["file"],r.get("overflow")) for r in layout["results"] if r.get("overflow")
+          ]
+          assert before["schemaVersion"]==after["schemaVersion"]
+          assert {k:v for k,v in before.items() if k!="units"} == {
+              k:v for k,v in after.items() if k!="units"
+          }
+          assert len(before["units"])==len(after["units"])==9
+
+          def extras(old, new):
+              out=[]
+              j=0
+              for block in new:
+                  if j < len(old) and block == old[j]:
+                      j += 1
+                  else:
+                      out.append(block)
+              assert j == len(old), "Existing lesson block changed, removed or reordered by visual atlas"
+              return out
+
+          en_blocks=[]
+          ta_blocks=[]
+          en_covered=set()
+          ta_covered=set()
+          lessons=0
+          for ub,ua in zip(before["units"],after["units"]):
+              assert {k:v for k,v in ub.items() if k!="lessons"} == {
+                  k:v for k,v in ua.items() if k!="lessons"
+              }
+              assert len(ub["lessons"])==len(ua["lessons"])
+              for lb,la in zip(ub["lessons"],ua["lessons"]):
+                  lessons += 1
+                  assert {k:v for k,v in lb.items() if k not in ("english","tamil")} == {
+                      k:v for k,v in la.items() if k not in ("english","tamil")
+                  }
+                  ex_en=extras(lb["english"],la["english"])
+                  ex_ta=extras(lb["tamil"],la["tamil"])
+                  assert ex_en, f"No new English visual in {la['id']}"
+                  assert ex_ta, f"No new Tamil visual in {la['id']}"
+                  assert all(b.get("kind") in ("figure","svg_figure") for b in ex_en+ex_ta)
+                  assert all(str(b.get("figure","")).startswith(("fig_v246_","sci_v246_")) for b in ex_en+ex_ta)
+                  en_blocks.extend(ex_en)
+                  ta_blocks.extend(ex_ta)
+                  en_covered.add(la["id"])
+                  ta_covered.add(la["id"])
+
+          assert lessons==46
+          assert len(en_covered)==len(ta_covered)==46
+          assert len(en_blocks)==64, len(en_blocks)
+          assert len(ta_blocks)==64, len(ta_blocks)
+
+          en_svg={b["figure"] for b in en_blocks if b["kind"]=="svg_figure"}
+          ta_svg={b["figure"] for b in ta_blocks if b["kind"]=="svg_figure"}
+          en_photo={b["figure"] for b in en_blocks if b["kind"]=="figure"}
+          ta_photo={b["figure"] for b in ta_blocks if b["kind"]=="figure"}
+
+          assert len(en_svg)==56, len(en_svg)
+          assert len(ta_svg)==56, len(ta_svg)
+          assert all(x.startswith("sci_v246_") and x.endswith("_e") for x in en_svg)
+          assert all(x.startswith("sci_v246_") and x.endswith("_t") for x in ta_svg)
+          assert len(en_photo)==len(ta_photo)==8
+          assert en_photo==ta_photo
+          assert en_photo=={m["id"] for m in manifest}
+
+          raw=Path("app/src/main/res/raw")
+          for name in sorted(en_svg|ta_svg):
+              p=raw/f"{name}.svg"
+              assert p.is_file(), p
+              ET.parse(p)
+
+          drawable_roots=[p for p in Path("app/src/main/res").glob("drawable*") if p.is_dir()]
+          photo_files={}
+          for name in sorted(en_photo):
+              matches=[
+                  p for root in drawable_roots for p in root.glob(name+".*")
+                  if p.suffix.lower() in (".webp",".png",".jpg",".jpeg")
+              ]
+              assert len(matches)==1, (name,matches)
+              photo_files[name]=str(matches[0])
+
+          all_refs={
+              b.get("figure")
+              for u in after["units"]
+              for l in u["lessons"]
+              for lang in ("english","tamil")
+              for b in l[lang]
+              if b.get("kind") in ("figure","svg_figure") and b.get("figure")
+          }
+          assert len(all_refs)==216, len(all_refs)
+
+          report={
+              "status":"PASS",
+              "scope":"v2.4.6 concept visual atlas integration",
+              "lessons":lessons,
+              "lessonsWithNewVisualEnglish":len(en_covered),
+              "lessonsWithNewVisualTamil":len(ta_covered),
+              "newVisualBlocksEnglish":len(en_blocks),
+              "newVisualBlocksTamil":len(ta_blocks),
+              "newSvgEnglish":len(en_svg),
+              "newSvgTamil":len(ta_svg),
+              "newSharedPhotos":len(en_photo),
+              "totalUniqueFigureReferences":len(all_refs),
+              "svgXmlParse":"PASS",
+              "svgTextOverflowCount":layout["overflowCount"],
+              "photoFiles":photo_files,
+              "bookContentSha256":hashlib.sha256(book_path.read_bytes()).hexdigest(),
+              "existingLessonBlocksPreserved":True,
+              "nonLessonPayloadUnchanged":True,
+          }
+          Path("V246_VISUAL_ATLAS_CI_AUDIT.json").write_text(
+              json.dumps(report,ensure_ascii=False,indent=2)+"\n",encoding="utf-8"
+          )
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+
       - name: Configure QA-only releaseQa device-evidence variant
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -2251,6 +2408,11 @@ jobs:
             "$INSTRUMENTATION" | tee androidsvg-instrumentation.txt
           grep -Eq '^OK \([0-9]+ test' androidsvg-instrumentation.txt
 
+          adb shell am instrument -w \
+            -e class edu.gascnagercoil.environmentalsciences.qa.V246SvgAndroidSvgScreenshotTest \
+            "$INSTRUMENTATION" | tee v246-androidsvg-instrumentation.txt
+          grep -Eq '^OK \([0-9]+ test' v246-androidsvg-instrumentation.txt
+
           TEST_PACKAGE="${INSTRUMENTATION%%/*}"
 
           adb shell am instrument -w \
@@ -2418,6 +2580,38 @@ jobs:
           echo "androidsvg_external_pull=PASS" | tee -a androidsvg-emulator-status.txt
           echo "androidsvg_emulator_render=PASS" | tee -a androidsvg-emulator-status.txt
 
+
+          rm -rf qa-v246-svg-androidsvg
+          mkdir -p qa-v246-svg-androidsvg
+          REMOTE_V246_RENDER_DIR="/sdcard/Android/data/$PACKAGE/files/v246-svg-androidsvg"
+          adb shell test -d "$REMOTE_V246_RENDER_DIR"
+          adb shell test -r "$REMOTE_V246_RENDER_DIR/result-manifest.txt"
+          adb shell ls -la "$REMOTE_V246_RENDER_DIR" | tee v246-androidsvg-external-ls.txt
+          adb pull "$REMOTE_V246_RENDER_DIR/." qa-v246-svg-androidsvg/
+
+          test -s qa-v246-svg-androidsvg/result-manifest.txt
+          grep -Fx 'api=35' qa-v246-svg-androidsvg/result-manifest.txt
+          grep -Fx 'package=edu.gascnagercoil.environmentalsciences' qa-v246-svg-androidsvg/result-manifest.txt
+          grep -Fx 'expected=56' qa-v246-svg-androidsvg/result-manifest.txt
+          grep -Fx 'rendered=56' qa-v246-svg-androidsvg/result-manifest.txt
+          grep -Fx 'result=56/56' qa-v246-svg-androidsvg/result-manifest.txt
+
+          python - <<'PYV246PNG'
+          from pathlib import Path
+          files=sorted(Path("qa-v246-svg-androidsvg").glob("*.png"))
+          assert len(files) == 56, len(files)
+          sig=b"\x89PNG\r\n\x1a\n"
+          bad=[p.name for p in files if not p.read_bytes().startswith(sig)]
+          assert not bad, bad
+          PYV246PNG
+
+          echo "v246_androidsvg_tamil_svg_expected=56" | tee v246-androidsvg-emulator-status.txt
+          echo "v246_androidsvg_tamil_svg_rendered=56" | tee -a v246-androidsvg-emulator-status.txt
+          echo "v246_androidsvg_tamil_svg_result=56/56" | tee -a v246-androidsvg-emulator-status.txt
+          echo "v246_androidsvg_emulator_api=$SDK_LEVEL" | tee -a v246-androidsvg-emulator-status.txt
+          echo "v246_androidsvg_external_pull=PASS" | tee -a v246-androidsvg-emulator-status.txt
+          echo "v246_androidsvg_emulator_render=PASS" | tee -a v246-androidsvg-emulator-status.txt
+
           if [ -n "${ENVSTUDIES_KEYSTORE_BASE64:-}" ] && \
              [ -n "${ENVSTUDIES_KEYSTORE_PASSWORD:-}" ] && \
              [ -n "${ENVSTUDIES_KEY_ALIAS:-}" ] && \
@@ -2474,6 +2668,8 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/app/proguard-releaseqa-androidtest.pro
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-uncovered-runtime-classes.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/v246-androidsvg-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/v246-androidsvg-external-ls.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-external-ls.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-instrumentation.txt
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-lesson-logcat.txt
@@ -2523,6 +2719,12 @@ jobs:
           name: Environmental-Studies-v2.4.5-Tamil-SVG-Renders
           path: |
             native-build/Environmental-Studies-v2.0.0-native/qa-svg-androidsvg/
+            native-build/Environmental-Studies-v2.0.0-native/qa-v246-svg-androidsvg/
+            native-build/Environmental-Studies-v2.0.0-native/v246-androidsvg-instrumentation.txt
+            native-build/Environmental-Studies-v2.0.0-native/v246-androidsvg-emulator-status.txt
+            native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_CI_AUDIT.json
+            native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_SVG_LAYOUT.json
+            native-build/Environmental-Studies-v2.0.0-native/V246_VISUAL_ATLAS_TRANSFORM_SHA256.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-emulator-status.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-render-package.txt
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
