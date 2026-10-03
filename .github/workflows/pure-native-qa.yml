@@ -1,4 +1,4 @@
-name: Environmental Studies v2.4.5 Release Candidate QA
+name: Environmental Studies v2.4.6 Final Release QA
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - academic/v2.4.6-content-depth-20261003
       - correction/v2.4.6-mobile-layout-20261003
       - visual/v2.4.6-concept-atlas-phase1-20261003
+      - release/v2.4.6-final-20261003
   workflow_dispatch:
     inputs:
       releaseqa_mode:
@@ -46,7 +47,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify v2.4.5 controlled branch scope
+      - name: Verify v2.4.6 controlled branch scope
         shell: bash
         run: |
           set -euo pipefail
@@ -1610,7 +1611,7 @@ jobs:
           PY
 
       - name: Apply and audit v2.4.6 concept visual atlas
-        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003'
+        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003' || github.ref_name == 'release/v2.4.6-final-20261003'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1869,7 +1870,7 @@ jobs:
           PY
 
       - name: Apply and audit v2.4.6 photograph attribution
-        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003'
+        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003' || github.ref_name == 'release/v2.4.6-final-20261003'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1895,7 +1896,7 @@ jobs:
           PYATTR
 
       - name: Synchronise and audit v2.4.6 photograph captions
-        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003'
+        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003' || github.ref_name == 'release/v2.4.6-final-20261003'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1918,7 +1919,7 @@ jobs:
           PYCAP
 
       - name: Add and audit four Tamil parity counterparts
-        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003'
+        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003' || github.ref_name == 'release/v2.4.6-final-20261003'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
         run: |
@@ -1947,6 +1948,36 @@ jobs:
           assert a["versionIdentifiersChanged"] is False,a
           print("V246_TAMIL_PARITY_FIGURES_PASS")
           PYTAPAR
+
+      - name: Promote final release identity to v2.4.6
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PYV246ID'
+          import hashlib, json
+          from pathlib import Path
+          gp=Path("app/build.gradle.kts")
+          bp=Path("app/src/main/res/raw/book_content.json")
+          g=gp.read_text(encoding="utf-8")
+          assert 'applicationId = "edu.gascnagercoil.environmentalsciences"' in g
+          assert 'versionCode = 20405' in g
+          assert 'versionName = "2.4.5"' in g
+          g=g.replace('versionCode = 20405','versionCode = 20406',1)
+          g=g.replace('versionName = "2.4.5"','versionName = "2.4.6"',1)
+          gp.write_text(g,encoding="utf-8")
+          b=json.loads(bp.read_text(encoding="utf-8"))
+          assert b["schemaVersion"]==2 and b["nativeVersion"]=="2.4.5"
+          b["nativeVersion"]="2.4.6"
+          bp.write_text(json.dumps(b,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          g=gp.read_text(encoding="utf-8"); b=json.loads(bp.read_text(encoding="utf-8"))
+          assert 'applicationId = "edu.gascnagercoil.environmentalsciences"' in g
+          assert 'versionCode = 20406' in g and 'versionName = "2.4.6"' in g
+          assert b["nativeVersion"]=="2.4.6" and b["schemaVersion"]==2
+          a={"status":"PASS","scope":"final v2.4.6 release identity promotion only","applicationId":"edu.gascnagercoil.environmentalsciences","versionName":"2.4.6","versionCode":20406,"bookNativeVersion":"2.4.6","bookSchemaVersion":2,"signingConfigurationChanged":False,"contentChangedByIdentityStep":False,"bookContentSha256AfterIdentity":hashlib.sha256(bp.read_bytes()).hexdigest()}
+          Path("V246_FINAL_RELEASE_IDENTITY_AUDIT.json").write_text(json.dumps(a,indent=2)+"\n",encoding="utf-8")
+          print(json.dumps(a,indent=2))
+          PYV246ID
 
       - name: Audit per-lesson diagram-topic parity
         if: env.RELEASEQA_MODE == 'full'
@@ -2280,7 +2311,7 @@ jobs:
             echo "after_r8_configuration_sha256=$(cut -d' ' -f1 "$RUNNER_TEMP/production-after-r8-configuration.sha256")"
           } | tee v245-production-isolation-proof.txt
 
-      - name: Verify v2.4.5 baseline-profile producer compiles
+      - name: Verify v2.4.6 baseline-profile producer compiles
         if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -2292,7 +2323,7 @@ jobs:
           echo "baseline_profile_generation_infrastructure=PASS" | tee baseline-profile-status.txt
           echo "baseline_profile_device_generation=requires_connected_device_and_installable_release" | tee -a baseline-profile-status.txt
 
-      - name: Build v2.4.5 debug QA and exercise minified release pipeline
+      - name: Build v2.4.6 debug QA and exercise minified release pipeline
         if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -2416,15 +2447,15 @@ jobs:
           RELEASE_AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
           test -f "$RELEASE_APK"
           test -f "$RELEASE_AAB"
-          cp "$RELEASE_APK" pre-emulator-artifacts/Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE.apk
-          cp "$RELEASE_AAB" pre-emulator-artifacts/Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE.aab
+          cp "$RELEASE_APK" pre-emulator-artifacts/Environmental-Studies-v2.4.6-UNSIGNED-PRODUCTION-RELEASE.apk
+          cp "$RELEASE_AAB" pre-emulator-artifacts/Environmental-Studies-v2.4.6-UNSIGNED-PRODUCTION-RELEASE.aab
 
           gradle --no-daemon :app:assembleReleaseQa \
             -PPRIVACY_POLICY_URL="$PRIVACY_URL" \
             --stacktrace
           RELEASE_QA_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
           test -f "$RELEASE_QA_APK"
-          cp "$RELEASE_QA_APK" pre-emulator-artifacts/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
+          cp "$RELEASE_QA_APK" pre-emulator-artifacts/Environmental-Studies-v2.4.6-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
 
           {
             echo "releaseQa_apk=QA-ONLY, DEBUG-SIGNED, NOT FOR DISTRIBUTION"
@@ -2436,24 +2467,24 @@ jobs:
         if: always() && env.RELEASEQA_MODE == 'full'
         uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED-APK-${{ github.run_number }}-${{ github.run_attempt }}
-          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
+          name: Environmental-Studies-v2.4.6-releaseQa-QA-ONLY-DEBUG-SIGNED-APK-${{ github.run_number }}-${{ github.run_attempt }}
+          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.6-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
           if-no-files-found: error
 
       - name: Upload unsigned production release APK before emulator
         if: always() && env.RELEASEQA_MODE == 'full'
         uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE-APK-${{ github.run_number }}-${{ github.run_attempt }}
-          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE.apk
+          name: Environmental-Studies-v2.4.6-UNSIGNED-PRODUCTION-RELEASE-APK-${{ github.run_number }}-${{ github.run_attempt }}
+          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.6-UNSIGNED-PRODUCTION-RELEASE.apk
           if-no-files-found: error
 
       - name: Upload unsigned production release AAB before emulator
         if: always() && env.RELEASEQA_MODE == 'full'
         uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE-AAB-${{ github.run_number }}-${{ github.run_attempt }}
-          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.5-UNSIGNED-PRODUCTION-RELEASE.aab
+          name: Environmental-Studies-v2.4.6-UNSIGNED-PRODUCTION-RELEASE-AAB-${{ github.run_number }}-${{ github.run_attempt }}
+          path: native-build/Environmental-Studies-v2.0.0-native/pre-emulator-artifacts/Environmental-Studies-v2.4.6-UNSIGNED-PRODUCTION-RELEASE.aab
           if-no-files-found: error
 
       - name: Build signed release APK and AAB when original signing secrets are present
@@ -2929,7 +2960,7 @@ jobs:
         if: always() && env.RELEASEQA_MODE != 'full'
         uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.5-releaseQa-DEX-AUDIT-${{ github.run_number }}-${{ github.run_attempt }}
+          name: Environmental-Studies-v2.4.6-releaseQa-DEX-AUDIT-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-app-dex/
             native-build/Environmental-Studies-v2.0.0-native/releaseqa-test-dex/
@@ -2990,7 +3021,7 @@ jobs:
         if: env.RELEASEQA_MODE == 'full'
         uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.5-releaseQa-DEVICE-EVIDENCE
+          name: Environmental-Studies-v2.4.6-releaseQa-DEVICE-EVIDENCE
           path: |
             native-build/Environmental-Studies-v2.0.0-native/app/build/outputs/apk/releaseQa/
             native-build/Environmental-Studies-v2.0.0-native/qa-releaseqa-screens/
@@ -3012,7 +3043,7 @@ jobs:
         if: env.RELEASEQA_MODE == 'full'
         uses: actions/upload-artifact@v4
         with:
-          name: Environmental-Studies-v2.4.5-Tamil-SVG-Renders
+          name: Environmental-Studies-v2.4.6-Tamil-SVG-Renders
           path: |
             native-build/Environmental-Studies-v2.0.0-native/qa-svg-androidsvg/
             native-build/Environmental-Studies-v2.0.0-native/qa-v246-svg-androidsvg/
@@ -3027,7 +3058,7 @@ jobs:
             native-build/Environmental-Studies-v2.0.0-native/androidsvg-instrumentation.txt
           if-no-files-found: error
 
-      - name: Inspect v2.4.5 package identity and offline contract
+      - name: Inspect v2.4.6 package identity and offline contract
         if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -3048,12 +3079,12 @@ jobs:
           "$AAPT" dump xmltree "$RELEASE_APK" AndroidManifest.xml | tee qa-manifest-xmltree-release.txt
 
           grep -q "package: name='edu.gascnagercoil.environmentalsciences.debug'" qa-badging-debug.txt
-          grep -q "versionCode='20405'" qa-badging-debug.txt
-          grep -q "versionName='2.4.5-debug'" qa-badging-debug.txt
+          grep -q "versionCode='20406'" qa-badging-debug.txt
+          grep -q "versionName='2.4.6-debug'" qa-badging-debug.txt
 
           grep -q "package: name='edu.gascnagercoil.environmentalsciences'" qa-badging-release.txt
-          grep -q "versionCode='20405'" qa-badging-release.txt
-          grep -q "versionName='2.4.5'" qa-badging-release.txt
+          grep -q "versionCode='20406'" qa-badging-release.txt
+          grep -q "versionName='2.4.6'" qa-badging-release.txt
           ! grep -q 'application-debuggable' qa-badging-release.txt
 
           ! grep -q 'android.permission.INTERNET' qa-permissions-release.txt
@@ -3111,9 +3142,9 @@ jobs:
             echo "webview=absent"
             echo "internet_permission=absent"
             echo "release_application_id=edu.gascnagercoil.environmentalsciences"
-            echo "version_name=2.4.5"
-            echo "version_code=20405"
-            echo "book_nativeVersion=2.4.5"
+            echo "version_name=2.4.6"
+            echo "version_code=20406"
+            echo "book_nativeVersion=2.4.6"
             echo "book_schemaVersion=2"
             echo "book_content_sha256=$BOOK_SHA"
             echo "allowBackup=false"
@@ -3126,9 +3157,9 @@ jobs:
             echo "release_webview_dex_scan=absent"
             echo "release_analytics_dex_scan=absent"
             echo "APK_SHA256=$(sha256sum "$RELEASE_APK" | awk '{print $1}')"
-          } | tee qa-evidence-v245.txt
+          } | tee qa-evidence-v246.txt
 
-      - name: Prepare v2.4.5 QA artefact
+      - name: Prepare v2.4.6 QA artefact
         if: env.RELEASEQA_MODE == 'full'
         working-directory: native-build/Environmental-Studies-v2.0.0-native
         shell: bash
@@ -3139,10 +3170,10 @@ jobs:
           DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
           RELEASE_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
           RELEASE_QA_APK="$(find app/build/outputs/apk/releaseQa -maxdepth 1 -type f -name '*.apk' | head -n1)"
-          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.5-DEVICE-QA.apk
-          cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-R8-QA.apk
-          cp "$RELEASE_QA_APK" qa-artifact/Environmental-Studies-v2.4.5-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
-          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v245.txt qa-artifact/
+          cp "$DEBUG_APK" qa-artifact/Environmental-Studies-v2.4.6-DEVICE-QA.apk
+          cp "$RELEASE_APK" qa-artifact/Environmental-Studies-v2.4.6-UNSIGNED-R8-QA.apk
+          cp "$RELEASE_QA_APK" qa-artifact/Environmental-Studies-v2.4.6-releaseQa-QA-ONLY-DEBUG-SIGNED.apk
+          cp qa-badging-debug.txt qa-permissions-debug.txt qa-badging-release.txt qa-permissions-release.txt qa-resources-debug.txt qa-resources-release.txt qa-manifest-xmltree-release.txt qa-merged-release-AndroidManifest.xml qa-dex-strings-release.txt qa-evidence-v246.txt qa-artifact/
           cp v245-size-dex-report.txt release-signing-status.txt baseline-profile-status.txt androidsvg-emulator-status.txt v245-signing-qa-gate.txt release-privacy-dex-status.txt release-privacy-dex-urls.txt qa-artifact/
           for OPTIONAL_DEX_EVIDENCE in releaseqa-runtime-keep-match-summary.txt releaseqa-genuine-missing-runtime-classes.txt; do
             if [ -f "$OPTIONAL_DEX_EVIDENCE" ]; then
@@ -3154,6 +3185,7 @@ jobs:
           cp V240_B_ARCHITECTURE_FINDINGS.json V240_C1_IMAGE_DECODE_AUDIT.json V240_C2_SVG_LEGIBILITY_AUDIT.json V240_C3_TAMIL_FONT_AUDIT.json V240_C4_ACCESSIBILITY_AUDIT.json qa-artifact/
           cp V241_DEVICE_FIGURE_QA_AUDIT.json V242_TAMIL_VISUAL_ICON_AUDIT.json V243_LIVING_ENVIRONMENT_AUDIT.json V243_VISUAL_ATLAS_COMPLETION_AUDIT.json V244_RELEASE_READINESS_AUDIT.json qa-artifact/
           cp V245_RELEASE_CANDIDATE_AUDIT.json V245_OPTION_DIFF.json V245_QUIZ_VALIDATION.json V245_PARITY_AUDIT.json qa-artifact/
+          cp V246_FINAL_RELEASE_IDENTITY_AUDIT.json qa-artifact/
           cp V245_INTERMEDIATE_STRUCTURE_AUDIT.json qa-artifact/
           cp V245_UI_POLISH_AUDIT.json qa-artifact/
           cp V245_PORTRAIT_UI_AUDIT.json qa-artifact/
@@ -3197,51 +3229,51 @@ jobs:
           if [ -d app/build/compose_compiler ]; then
             cp -r app/build/compose_compiler qa-artifact/compose_compiler
           fi
-          tar -czf qa-artifact/v245-reconstructed-source.tar.gz \
+          tar -czf qa-artifact/v246-reconstructed-source.tar.gz \
             app/src/main/java app/src/main/res app/src/androidTest app/build.gradle.kts app/proguard-rules.pro \
             app/proguard-releaseqa-target.pro app/proguard-releaseqa-androidtest.pro \
             baselineprofile settings.gradle.kts build.gradle.kts gradle.properties
-          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v245_release_candidate.json
+          cp app/src/main/res/raw/book_content.json qa-artifact/book_content_v246_final_release.json
 
           UNSIGNED_AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1 || true)"
           if [ -n "$UNSIGNED_AAB" ] && [ -f "$UNSIGNED_AAB" ]; then
-            cp "$UNSIGNED_AAB" qa-artifact/Environmental-Studies-v2.4.5-UNSIGNED-AAB-QA.aab
+            cp "$UNSIGNED_AAB" qa-artifact/Environmental-Studies-v2.4.6-UNSIGNED-AAB-QA.aab
           fi
 
           if grep -q 'signed_release_available=true' release-signing-status.txt; then
             SIGNED_APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
             AAB="$(find app/build/outputs/bundle/release -maxdepth 1 -type f -name '*.aab' | head -n1)"
-            cp "$SIGNED_APK" qa-artifact/Environmental-Studies-v2.4.5-RELEASE.apk
-            cp "$AAB" qa-artifact/Environmental-Studies-v2.4.5-RELEASE.aab
+            cp "$SIGNED_APK" qa-artifact/Environmental-Studies-v2.4.6-RELEASE.apk
+            cp "$AAB" qa-artifact/Environmental-Studies-v2.4.6-RELEASE.aab
           fi
 
       - uses: actions/upload-artifact@v4
         if: env.RELEASEQA_MODE == 'full'
         with:
-          name: Environmental-Studies-v2.4.5-RELEASE-CANDIDATE-QA
+          name: Environmental-Studies-v2.4.6-FINAL-RELEASE-QA
           path: native-build/Environmental-Studies-v2.0.0-native/qa-artifact/
           if-no-files-found: error
 
-      - name: Enforce final release-candidate gates
+      - name: Enforce final v2.4.6 release gates
         if: always() && env.RELEASEQA_MODE == 'full'
         shell: bash
         run: |
           set -euo pipefail
           failed=0
           if [ "${{ steps.privacy_policy.outcome }}" != "success" ]; then
-            echo "RELEASE-CANDIDATE ONLY: stable public Privacy Policy endpoint is not yet available."
+            echo "RELEASE BLOCKER: stable public Privacy Policy endpoint is not yet available."
             failed=1
           fi
           if [ "${{ steps.item3_content.outcome }}" != "success" ]; then
-            echo "RELEASE-CANDIDATE ONLY: Item 3 Tamil content defects remain OPEN."
+            echo "RELEASE BLOCKER: Item 3 Tamil content defects remain OPEN."
             failed=1
           fi
           if [ "${{ steps.topic_parity.outcome }}" != "success" ]; then
-            echo "RELEASE-CANDIDATE ONLY: unresolved diagram-topic parity entries remain."
+            echo "RELEASE BLOCKER: unresolved diagram-topic parity entries remain."
             failed=1
           fi
           if [ "${{ steps.tts_engine.outcome }}" != "success" ]; then
-            echo "RELEASE-CANDIDATE ONLY: TTS evidence is neither a bilingual pass nor a documented CI-emulator limitation."
+            echo "RELEASE BLOCKER: TTS evidence is neither a bilingual pass nor a documented CI-emulator limitation."
             failed=1
           fi
           if [ "$failed" -ne 0 ]; then
