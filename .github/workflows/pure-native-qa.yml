@@ -93,6 +93,7 @@ jobs:
               "ci/v246_visual_atlas.py.gz.b64.part4",
               "ci/v246_visual_atlas.py.gz.b64.part5",
               "ci/v246_visual_photo_manifest.json",
+              "ci/apply_v246_photo_attribution.py",
               "V246_VISUAL_ATLAS_PLAN.md",
               "ci/v245_ui_polish/BrandExperience.patch",
               "ci/v245_ui_polish/VisualLearning.patch",
@@ -1670,29 +1671,39 @@ jobs:
               assert len(output_bytes) > 1024, (item["id"],len(output_bytes))
               output_sha=hashlib.sha256(output_bytes).hexdigest()
               expected_output=item.get("expected_output_sha256")
-              assert expected_output, ("missing pinned output hash",item["id"])
-              assert output_sha==expected_output, (
-                  item["id"],"output-sha256",output_sha,expected_output
-              )
+              pin_pending=bool(item.get("pin_pending",False))
+              if expected_output:
+                  assert not pin_pending, ("pinned output must not remain pin_pending",item["id"])
+                  assert output_sha==expected_output, (
+                      item["id"],"output-sha256",output_sha,expected_output
+                  )
+              else:
+                  assert pin_pending, ("missing pinned output hash without pin_pending",item["id"])
               audit.append({
                   "id":item["id"],
                   "sourceUrl":item["url"],
                   "sourcePage":item["source_page"],
+                  "sourceTitle":item.get("source_title"),
+                  "sourceDescription":item.get("source_description"),
                   "author":item["author"],
                   "license":item["license"],
+                  "licenseUrl":item["license_url"],
                   "sourceSha256":source_sha,
                   "expectedSourceSha256":expected,
                   "output":str(output),
                   "outputBytes":len(output_bytes),
                   "outputSha256":output_sha,
                   "expectedOutputSha256":expected_output,
+                  "pinPending":pin_pending,
               })
 
+          pin_pending_count=sum(1 for x in audit if x["pinPending"])
           report={
-              "status":"PASS",
+              "status":"PIN_PENDING" if pin_pending_count else "PASS",
               "count":len(audit),
               "unpinnedSourceHashes":sum(1 for x in audit if not x["expectedSourceSha256"]),
               "unpinnedOutputHashes":sum(1 for x in audit if not x["expectedOutputSha256"]),
+              "pinPendingCount":pin_pending_count,
               "pinningPolicy":"application WebP output SHA-256 is authoritative; Wikimedia thumbnail transport bytes are observational",
               "photos":audit,
           }
@@ -1701,6 +1712,8 @@ jobs:
               encoding="utf-8",
           )
           print(json.dumps(report,ensure_ascii=False,indent=2))
+          if pin_pending_count:
+              raise SystemExit(17)
           PYPHOTO
 
           python -m py_compile ../../ci/v246_visual_atlas.py
@@ -1839,6 +1852,29 @@ jobs:
           )
           print(json.dumps(report,ensure_ascii=False,indent=2))
           PY
+
+      - name: Apply and audit v2.4.6 photograph attribution
+        if: github.ref_name == 'visual/v2.4.6-concept-atlas-phase1-20261003'
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile ../../ci/apply_v246_photo_attribution.py
+          python ../../ci/apply_v246_photo_attribution.py
+          test -f V246_PHOTO_ATTRIBUTION_AUDIT.json
+          test -f app/src/main/res/raw/v246_photo_credits.json
+          python - <<'PYATTR'
+          import json
+          from pathlib import Path
+          audit=json.loads(Path("V246_PHOTO_ATTRIBUTION_AUDIT.json").read_text(encoding="utf-8"))
+          credits=json.loads(Path("app/src/main/res/raw/v246_photo_credits.json").read_text(encoding="utf-8"))
+          assert audit["status"]=="PASS",audit
+          assert audit["photoCreditCount"]==8,audit
+          assert len(credits)==8,len(credits)
+          assert {x["id"] for x in credits}==set(audit["creditIds"])
+          assert all(x["modification"]=="resized and converted to WebP" for x in credits)
+          print("V246_PHOTO_ATTRIBUTION_PASS")
+          PYATTR
 
       - name: Configure QA-only releaseQa device-evidence variant
         working-directory: native-build/Environmental-Studies-v2.0.0-native
@@ -3064,6 +3100,9 @@ jobs:
           cp -R qa-svg-androidsvg qa-artifact/androidsvg-tamil-renders
           if [ -f V246_VISUAL_ATLAS_CI_AUDIT.json ]; then
             cp V246_VISUAL_ATLAS_CI_AUDIT.json V246_VISUAL_ATLAS_SVG_LAYOUT.json V246_VISUAL_ATLAS_TRANSFORM_SHA256.txt V246_VISUAL_PHOTO_AUDIT.json qa-artifact/
+          fi
+          if [ -f V246_PHOTO_ATTRIBUTION_AUDIT.json ]; then
+            cp V246_PHOTO_ATTRIBUTION_AUDIT.json app/src/main/res/raw/v246_photo_credits.json qa-artifact/
           fi
           if [ -d qa-v246-svg-androidsvg ]; then
             cp -R qa-v246-svg-androidsvg qa-artifact/v246-androidsvg-tamil-renders
