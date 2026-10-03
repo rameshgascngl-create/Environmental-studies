@@ -83,7 +83,7 @@ def audit_file(path, ta_font, en_font):
     vb=[float(x) for x in re.findall(NUM,root.attrib.get('viewBox',''))]
     if len(vb)!=4:return {'file':path.name,'error':'missing viewBox'}
     vx,vy,vw,vh=vb; view=(vx,vy,vx+vw,vy+vh)
-    is_ta=path.name.endswith('_ta.svg'); font_path=ta_font if is_ta else en_font
+    is_ta=path.name.endswith(('_ta.svg','_t.svg')); font_path=ta_font if is_ta else en_font
     shapes=[]; texts=[]
     def walk(e,parent_m=(1,0,0,1,0,0),inherited=None):
         inherited=dict(inherited or {})
@@ -139,7 +139,7 @@ def audit_file(path, ta_font, en_font):
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('raw_dir'); ap.add_argument('--ta-font',required=True); ap.add_argument('--en-font',required=True); ap.add_argument('--out',required=True)
     a=ap.parse_args(); raw=Path(a.raw_dir)
-    results=[audit_file(p,a.ta_font,a.en_font) for p in sorted(raw.glob('*.svg')) if p.name.endswith(('_ta.svg','_en.svg'))]
+    results=[audit_file(p,a.ta_font,a.en_font) for p in sorted(raw.glob('*.svg')) if p.name.endswith(('_ta.svg','_en.svg','_t.svg','_e.svg'))]
     out={'files':len(results),'overflowCount':sum(len(r.get('overflow',[])) for r in results),'overlapLeadCount':sum(len(r.get('overlapLeads',[])) for r in results),'results':results}
     Path(a.out).write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n'); print(json.dumps({'files':out['files'],'overflowCount':out['overflowCount'],'overlapLeadCount':out['overlapLeadCount']},indent=2))
 if __name__=='__main__':main()
