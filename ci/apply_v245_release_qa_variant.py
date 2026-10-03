@@ -7,6 +7,7 @@ GRADLE = Path("app/build.gradle.kts")
 QA_MANIFEST = Path("app/src/releaseQa/AndroidManifest.xml")
 QA_TEST = Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/ReleaseQaLessonEvidenceTest.kt")
 SVG_QA_TEST = Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/SvgAndroidSvgScreenshotTest.kt")
+V246_SVG_QA_TEST = Path("app/src/androidTest/java/edu/gascnagercoil/environmentalsciences/qa/V246SvgAndroidSvgScreenshotTest.kt")
 QA_TEST_PROGUARD = Path("app/proguard-releaseqa-androidtest.pro")
 QA_TARGET_PROGUARD = Path("app/proguard-releaseqa-target.pro")
 QA_RUNTIME_KEEP_SOURCE = Path("../../ci/v245_releaseqa_runtime_keep.pro")
@@ -297,23 +298,9 @@ class SvgAndroidSvgScreenshotTest {
             }
         }
 
-        val legacyNames = tamilSvgNames.filter { it.endsWith("_ta") }.toSet()
-        val v246Names = tamilSvgNames.filter { it.startsWith("sci_v246_") && it.endsWith("_t") }.toSet()
-        val legacyExpected = 46
-        val v246Expected = 56
-        val expected = legacyExpected + v246Expected
+        val expected = 46
         assertEquals(
-            "Legacy Tamil SVG set must remain exactly 46 resources",
-            legacyExpected,
-            legacyNames.size,
-        )
-        assertEquals(
-            "v2.4.6 visual atlas must contribute exactly 56 Tamil SVG resources",
-            v246Expected,
-            v246Names.size,
-        )
-        assertEquals(
-            "book_content.json must reference exactly 102 unique Tamil svg_figure resources",
+            "book_content.json must reference exactly 46 unique Tamil svg_figure resources",
             expected,
             tamilSvgNames.size,
         )
@@ -361,10 +348,117 @@ class SvgAndroidSvgScreenshotTest {
             "api=${Build.VERSION.SDK_INT}",
             "package=${context.packageName}",
             "output=${out.absolutePath}",
-            "legacyExpected=$legacyExpected",
-            "legacyFound=${legacyNames.size}",
-            "v246Expected=$v246Expected",
-            "v246Found=${v246Names.size}",
+            "expected=$expected",
+            "rendered=${rendered.size}",
+            "result=${rendered.size}/$expected",
+        ) + rendered.map { "file=$it" }
+        File(out, "result-manifest.txt").writeText(manifest.joinToString("\n", postfix = "\n"))
+        assertTrue(File(out, "result-manifest.txt").length() > 0L)
+    }
+}
+''', encoding="utf-8")
+
+
+V246_SVG_QA_TEST.write_text(r'''package edu.gascnagercoil.environmentalsciences.qa
+
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.os.Build
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import com.caverock.androidsvg.SVG
+import java.io.File
+import java.io.FileOutputStream
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class V246SvgAndroidSvgScreenshotTest {
+    @Test
+    fun renderV246TamilSvgAtlasThroughAndroidSvg() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val resources = context.resources
+        val out = requireNotNull(context.getExternalFilesDir("v246-svg-androidsvg")) {
+            "External files directory unavailable for v2.4.6 AndroidSVG evidence"
+        }.apply {
+            deleteRecursively()
+            assertTrue("Unable to create v2.4.6 AndroidSVG evidence directory", mkdirs() || isDirectory)
+        }
+
+        val bookId = resources.getIdentifier("book_content", "raw", context.packageName)
+        assertTrue("book_content raw resource lookup failed", bookId != 0)
+        val book = resources.openRawResource(bookId)
+            .bufferedReader(Charsets.UTF_8)
+            .use { JSONObject(it.readText()) }
+
+        val names = linkedSetOf<String>()
+        val units = book.getJSONArray("units")
+        for (unitIndex in 0 until units.length()) {
+            val lessons = units.getJSONObject(unitIndex).getJSONArray("lessons")
+            for (lessonIndex in 0 until lessons.length()) {
+                val lesson = lessons.getJSONObject(lessonIndex)
+                val tamil = lesson.getJSONArray("tamil")
+                for (blockIndex in 0 until tamil.length()) {
+                    val block = tamil.getJSONObject(blockIndex)
+                    if (block.optString("kind") != "svg_figure") continue
+                    val figure = block.optString("figure")
+                    if (figure.startsWith("sci_v246_") && figure.endsWith("_t")) {
+                        names += figure
+                    }
+                }
+            }
+        }
+
+        val expected = 56
+        assertEquals(
+            "v2.4.6 visual atlas must reference exactly 56 unique Tamil SVG resources",
+            expected,
+            names.size,
+        )
+
+        val candidates = names.sorted().map { name ->
+            val resourceId = resources.getIdentifier(name, "raw", context.packageName)
+            assertTrue("v2.4.6 Tamil SVG resource lookup failed: $name", resourceId != 0)
+            name to resourceId
+        }
+
+        val rendered = mutableListOf<String>()
+        for ((name, resourceId) in candidates) {
+            val svg = resources.openRawResource(resourceId).use { SVG.getFromInputStream(it) }
+            val picture = svg.renderToPicture(1600, 1000)
+            assertTrue("AndroidSVG picture width is zero: $name", picture.width > 0)
+            assertTrue("AndroidSVG picture height is zero: $name", picture.height > 0)
+
+            val bitmap = Bitmap.createBitmap(
+                picture.width,
+                picture.height,
+                Bitmap.Config.ARGB_8888,
+            )
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.WHITE)
+            canvas.drawPicture(picture)
+
+            val png = File(out, "$name.png")
+            FileOutputStream(png).use { stream ->
+                assertTrue(
+                    "PNG compression failed: $name",
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream),
+                )
+            }
+            bitmap.recycle()
+            assertTrue("Empty AndroidSVG screenshot: $name", png.length() > 256L)
+            rendered += png.name
+        }
+
+        assertEquals("Every v2.4.6 Tamil SVG must render", expected, rendered.size)
+        val manifest = listOf(
+            "api=${Build.VERSION.SDK_INT}",
+            "package=${context.packageName}",
+            "output=${out.absolutePath}",
             "expected=$expected",
             "rendered=${rendered.size}",
             "result=${rendered.size}/$expected",
@@ -409,6 +503,8 @@ AUDIT.write_text(json.dumps({
     "gradleSha256After": hashlib.sha256(final_gradle.encode()).hexdigest(),
     "evidenceTest": str(QA_TEST),
     "androidSvgEvidenceTest": str(SVG_QA_TEST),
+    "v246AndroidSvgEvidenceTest": str(V246_SVG_QA_TEST),
+    "v246AndroidSvgEvidenceOutput": "targetContext.getExternalFilesDir(\\\"v246-svg-androidsvg\\\")",
     "androidSvgEvidenceOutput": "targetContext.getExternalFilesDir(\\\"svg-androidsvg\\\")",
     "manifestOverlay": str(QA_MANIFEST),
 }, indent=2) + "\n", encoding="utf-8")
