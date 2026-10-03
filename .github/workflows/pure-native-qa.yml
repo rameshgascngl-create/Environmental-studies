@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release/v2.4.5-rc-20261001
+      - academic/v2.4.6-content-depth-20261003
   workflow_dispatch:
     inputs:
       releaseqa_mode:
@@ -82,6 +83,7 @@ jobs:
               "ci/v245_quiz_schema.json",
               "ci/v245_explanation_refinement.py",
               "ci/v245_accessibility_refinement.py",
+              "ci/apply_v246_academic_content.py",
               "ci/v245_ui_polish/BrandExperience.patch",
               "ci/v245_ui_polish/VisualLearning.patch",
               "ci/v245_ui_polish/HomeScreens.patch",
@@ -108,6 +110,7 @@ jobs:
               "ci/audit_v245_topic_parity.py",
               "ci/parity-allowlist.json",
               "V245_ITEM3_TAMIL_EDITORIAL_PROPOSAL.md",
+              "V246_ACADEMIC_CONTENT_AUDIT.md",
               ".github/workflows/pages-privacy.yml",
               "site/privacy-policy.html",
               "FACTS_TO_VERIFY.md",
@@ -1375,6 +1378,126 @@ jobs:
           set -euo pipefail
           python -m py_compile ../../ci/apply_v245_item4_quiz_punctuation.py
           python ../../ci/apply_v245_item4_quiz_punctuation.py
+
+      - name: Apply and audit v2.4.6 academic lesson depth expansion
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp app/src/main/res/raw/book_content.json /tmp/book-content-pre-v246.json
+          python -m py_compile ../../ci/apply_v246_academic_content.py
+          python ../../ci/apply_v246_academic_content.py \
+            app/src/main/res/raw/book_content.json \
+            app/src/main/res/raw/book_content.json
+          python - <<'PY'
+          import hashlib, json, re
+          from pathlib import Path
+
+          before=json.loads(Path("/tmp/book-content-pre-v246.json").read_text(encoding="utf-8"))
+          book=Path("app/src/main/res/raw/book_content.json")
+          after=json.loads(book.read_text(encoding="utf-8"))
+
+          assert before["schemaVersion"]==after["schemaVersion"]==2
+          assert before["nativeVersion"]==after["nativeVersion"]=="2.4.5"
+          assert {k:v for k,v in before.items() if k!="units"} == {k:v for k,v in after.items() if k!="units"}
+          assert len(before["units"])==len(after["units"])==9
+
+          def extras(old, new):
+              out=[]
+              j=0
+              for block in new:
+                  if j < len(old) and block == old[j]:
+                      j += 1
+                  else:
+                      out.append(block)
+              assert j == len(old), "An original lesson block was changed, removed or reordered"
+              return out
+
+          def text_of(value):
+              if isinstance(value, str):
+                  return value
+              if isinstance(value, list):
+                  return " ".join(text_of(x) for x in value)
+              if isinstance(value, dict):
+                  return " ".join(text_of(v) for v in value.values())
+              return ""
+
+          lesson_count=0
+          added_en=0
+          added_ta=0
+          all_added_en=[]
+          all_added_ta=[]
+          food_chain_en=[]
+
+          for ub,ua in zip(before["units"],after["units"]):
+              assert {k:v for k,v in ub.items() if k!="lessons"} == {k:v for k,v in ua.items() if k!="lessons"}
+              assert len(ub["lessons"]) == len(ua["lessons"])
+              for lb,la in zip(ub["lessons"],ua["lessons"]):
+                  lesson_count += 1
+                  assert {k:v for k,v in lb.items() if k not in ("english","tamil")} == {
+                      k:v for k,v in la.items() if k not in ("english","tamil")
+                  }
+                  en_extra=extras(lb["english"],la["english"])
+                  ta_extra=extras(lb["tamil"],la["tamil"])
+                  assert en_extra and ta_extra, f"Lesson not expanded: {la.get('number')}"
+                  assert len(en_extra)==len(ta_extra), (la.get("number"),len(en_extra),len(ta_extra))
+                  assert all(b.get("kind") in ("depth","table") for b in en_extra+ta_extra)
+                  added_en += len(en_extra)
+                  added_ta += len(ta_extra)
+                  all_added_en.extend(en_extra)
+                  all_added_ta.extend(ta_extra)
+                  if la.get("number")=="2.2":
+                      food_chain_en.extend(en_extra)
+
+          assert lesson_count==46, lesson_count
+          assert added_en==added_ta==95, (added_en,added_ta)
+
+          before_words=len(re.findall(r"[A-Za-z]+(?:[-'][A-Za-z]+)?", text_of(
+              [l["english"] for u in before["units"] for l in u["lessons"]]
+          )))
+          after_words=len(re.findall(r"[A-Za-z]+(?:[-'][A-Za-z]+)?", text_of(
+              [l["english"] for u in after["units"] for l in u["lessons"]]
+          )))
+          assert after_words >= int(before_words*1.5), (before_words,after_words)
+
+          food=text_of(food_chain_en).casefold()
+          for term in ("grassland","pond","marine","forest","mangrove","detrit","energy pyramid"):
+              assert term in food, term
+
+          tamil_added=text_of(all_added_ta)
+          assert not re.search(r"[\u0900-\u097f]",tamil_added), "Devanagari found in Tamil expansion"
+
+          def figure_refs(data,lang):
+              return [
+                  (l["id"],b.get("figure"),b.get("kind"))
+                  for u in data["units"] for l in u["lessons"] for b in l[lang]
+                  if b.get("kind") in ("figure","svg_figure") and b.get("figure")
+              ]
+          assert figure_refs(before,"english")==figure_refs(after,"english")
+          assert figure_refs(before,"tamil")==figure_refs(after,"tamil")
+
+          digest=hashlib.sha256(book.read_bytes()).hexdigest()
+          audit={
+              "status":"PASS",
+              "scope":"v2.4.6 academic lesson depth expansion on frozen v2.4.5 runtime",
+              "lessonsExpanded":lesson_count,
+              "addedBlocksEnglish":added_en,
+              "addedBlocksTamil":added_ta,
+              "englishWordsBefore":before_words,
+              "englishWordsAfter":after_words,
+              "englishWordIncrease":after_words-before_words,
+              "nonLessonPayloadUnchanged":True,
+              "quizPayloadUnchanged":True,
+              "figureReferencesUnchanged":True,
+              "originalLessonBlocksPreserved":True,
+              "tamilDevanagariCheck":"PASS",
+              "bookContentSha256":digest,
+          }
+          Path("V246_ACADEMIC_CONTENT_RUNTIME_AUDIT.json").write_text(
+              json.dumps(audit,ensure_ascii=False,indent=2)+"\n",encoding="utf-8"
+          )
+          print(json.dumps(audit,ensure_ascii=False,indent=2))
+          PY
 
       - name: Apply item 5 fail-soft figure rendering
         working-directory: native-build/Environmental-Studies-v2.0.0-native
