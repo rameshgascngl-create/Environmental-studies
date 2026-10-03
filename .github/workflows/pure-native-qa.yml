@@ -5,6 +5,7 @@ on:
     branches:
       - release/v2.4.5-rc-20261001
       - academic/v2.4.6-content-depth-20261003
+      - correction/v2.4.6-mobile-layout-20261003
   workflow_dispatch:
     inputs:
       releaseqa_mode:
@@ -84,6 +85,7 @@ jobs:
               "ci/v245_explanation_refinement.py",
               "ci/v245_accessibility_refinement.py",
               "ci/apply_v246_academic_content.py",
+              "ci/apply_v246_mobile_layout_fix.py.gz.b64",
               "ci/v245_ui_polish/BrandExperience.patch",
               "ci/v245_ui_polish/VisualLearning.patch",
               "ci/v245_ui_polish/HomeScreens.patch",
@@ -1546,6 +1548,31 @@ jobs:
           set -euo pipefail
           python -m py_compile ../../ci/apply_v245_privacy_url_lint.py
           python ../../ci/apply_v245_privacy_url_lint.py
+
+      - name: Apply and audit v2.4.6 mobile layout correction
+        working-directory: native-build/Environmental-Studies-v2.0.0-native
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 -d ../../ci/apply_v246_mobile_layout_fix.py.gz.b64 | gzip -dc > /tmp/apply_v246_mobile_layout_fix.py
+          sha256sum /tmp/apply_v246_mobile_layout_fix.py | tee V246_MOBILE_LAYOUT_TRANSFORM_SHA256.txt
+          python -m py_compile /tmp/apply_v246_mobile_layout_fix.py
+          python /tmp/apply_v246_mobile_layout_fix.py
+          test -f V246_MOBILE_LAYOUT_AUDIT.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path("V246_MOBILE_LAYOUT_AUDIT.json").read_text(encoding="utf-8"))
+          assert a["scope"]=="v2.4.6 mobile layout correction only",a
+          assert a["bookContentSha256"]=="e0d152e9c51be5bb095ba11c8fdc171467eb594ec75fe17158a9bada0a8ea8d4",a
+          assert a["scientificContentChanged"] is False,a
+          assert a["quizPayloadChanged"] is False,a
+          assert a["figureAssetsChanged"] is False,a
+          assert a["packageIdentityChanged"] is False,a
+          assert a["signingChanged"] is False,a
+          assert all(a["checks"].values()),a["checks"]
+          print("V246_MOBILE_LAYOUT_PASS")
+          PY
 
       - name: Configure QA-only releaseQa device-evidence variant
         working-directory: native-build/Environmental-Studies-v2.0.0-native
