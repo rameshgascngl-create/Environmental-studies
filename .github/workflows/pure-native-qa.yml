@@ -2738,8 +2738,54 @@ jobs:
               echo "Baseline Profile precondition failed: $PACKAGE remains installed with the releaseQa signer." >&2
               exit 13
             fi
+            # Production release hardening intentionally removes ProfileInstallReceiver.
+            # Baseline Profile collection needs that receiver only in the temporary
+            # nonMinifiedRelease target. Temporarily remove the app-level removal
+            # marker, then restore the source manifest even if Gradle fails.
+            BASELINE_MANIFEST="app/src/main/AndroidManifest.xml"
+            BASELINE_MANIFEST_BACKUP="$RUNNER_TEMP/AndroidManifest.xml.pre-baseline-profile"
+            cp "$BASELINE_MANIFEST" "$BASELINE_MANIFEST_BACKUP"
+            restore_baseline_manifest() {
+              cp "$BASELINE_MANIFEST_BACKUP" "$BASELINE_MANIFEST"
+            }
+            trap restore_baseline_manifest EXIT
+
+            python - <<'PYPROFILE'
+            from pathlib import Path
+            import xml.etree.ElementTree as ET
+
+            path = Path("app/src/main/AndroidManifest.xml")
+            tree = ET.parse(path)
+            root = tree.getroot()
+            android = "{http://schemas.android.com/apk/res/android}"
+            tools = "{http://schemas.android.com/tools}"
+            app = root.find("application")
+            assert app is not None, "application element missing"
+
+            removed = 0
+            for receiver in list(app.findall("receiver")):
+                if (
+                    receiver.get(android + "name") == "androidx.profileinstaller.ProfileInstallReceiver"
+                    and receiver.get(tools + "node") == "remove"
+                ):
+                    app.remove(receiver)
+                    removed += 1
+
+            assert removed == 1, (
+                "Expected exactly one app-level ProfileInstallReceiver tools:node=remove marker; "
+                f"found {removed}"
+            )
+            ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
+            ET.register_namespace("tools", "http://schemas.android.com/tools")
+            tree.write(path, encoding="utf-8", xml_declaration=True)
+            PYPROFILE
+
             ENVSTUDIES_KEYSTORE_PATH="$KEYSTORE" gradle --no-daemon :app:generateBaselineProfile \
               -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
+
+            restore_baseline_manifest
+            trap - EXIT
+            cmp -s "$BASELINE_MANIFEST" "$BASELINE_MANIFEST_BACKUP"
             echo "baseline_profile_device_generation=PASS" >> baseline-profile-status.txt
           else
             echo "baseline_profile_device_generation=SKIPPED_NO_PRODUCTION_SIGNING_SECRETS" >> baseline-profile-status.txt
