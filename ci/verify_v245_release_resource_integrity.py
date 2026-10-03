@@ -76,10 +76,19 @@ refs = {
 png = sorted(x for x in refs if x.startswith("fig_"))
 svg = sorted(x for x in refs if x.startswith("sci_"))
 unexpected = sorted(refs - set(png) - set(svg))
-assert len(refs) == 96, len(refs)
-assert len(png) == 31, len(png)
-assert len(svg) == 65, len(svg)
+assert len(refs) >= 96, len(refs)
+assert len(png) >= 31, len(png)
+assert len(svg) >= 65, len(svg)
 assert not unexpected, unexpected
+
+v246_png = sorted(x for x in png if x.startswith("fig_v246_"))
+v246_svg = sorted(x for x in svg if x.startswith("sci_v246_"))
+if v246_png or v246_svg:
+    assert len(v246_png) == 8, len(v246_png)
+    assert len(v246_svg) == 112, len(v246_svg)
+    assert len(png) == 39, len(png)
+    assert len(svg) == 177, len(svg)
+    assert len(refs) == 216, len(refs)
 
 apk_missing_table = []
 apk_missing_file = []
@@ -95,32 +104,27 @@ for name in sorted(refs):
         apk_missing_file.append({"resource": name, "path": path})
 
 aab_missing_file = []
-for name in sorted(refs):
-    suffix = name + (".png" if name.startswith("fig_") else ".svg")
-    expected = (
-        f"base/res/drawable-nodpi/{suffix}"
-        if name.startswith("fig_")
-        else f"base/res/raw/{suffix}"
+drawable_exts = (".png", ".webp", ".jpg", ".jpeg")
+def aab_drawable_present(name: str) -> bool:
+    return any(
+        x.startswith("base/res/drawable")
+        and Path(x).stem == name
+        and Path(x).suffix.lower() in drawable_exts
+        for x in aab_entries
     )
-    # AGP may include a configuration suffix in the drawable directory.
+
+for name in sorted(refs):
     present = (
-        expected in aab_entries
-        or any(
-            x.startswith("base/res/drawable") and Path(x).name == suffix
-            for x in aab_entries
-        )
+        aab_drawable_present(name)
         if name.startswith("fig_")
-        else expected in aab_entries
+        else f"base/res/raw/{name}.svg" in aab_entries
     )
     if not present:
         aab_missing_file.append(name)
 
 apk_png_resolved = sum(x in apk_paths for x in png)
 apk_svg_resolved = sum(x in apk_paths for x in svg)
-aab_png_files = sum(
-    any(x.startswith("base/res/drawable") and Path(x).name == name + ".png" for x in aab_entries)
-    for name in png
-)
+aab_png_files = sum(aab_drawable_present(name) for name in png)
 aab_svg_files = sum(f"base/res/raw/{name}.svg" in aab_entries for name in svg)
 
 # Verify resource entry names inside the AAB base module resource table,
@@ -133,9 +137,9 @@ assert not apk_missing_table, apk_missing_table
 assert not apk_missing_file, apk_missing_file
 assert not aab_missing_table, aab_missing_table
 assert not aab_missing_file, aab_missing_file
-assert (apk_png_resolved, apk_svg_resolved) == (31, 65)
-assert (aab_png_table, aab_svg_table) == (31, 65)
-assert (aab_png_files, aab_svg_files) == (31, 65)
+assert (apk_png_resolved, apk_svg_resolved) == (len(png), len(svg))
+assert (aab_png_table, aab_svg_table) == (len(png), len(svg))
+assert (aab_png_files, aab_svg_files) == (len(png), len(svg))
 assert "resources.arsc" in apk_entries
 assert "base/resources.pb" in aab_entries
 
@@ -158,9 +162,11 @@ report = {
         "identical": True,
         "sha256": sha256_bytes(apk_book_bytes),
     },
-    "expectedUniqueFigures": 96,
-    "expectedPngFigures": 31,
-    "expectedSvgFigures": 65,
+    "expectedUniqueFigures": len(refs),
+    "expectedPngFigures": len(png),
+    "expectedSvgFigures": len(svg),
+    "v246PhotoFigures": len(v246_png),
+    "v246SvgFigures": len(v246_svg),
     "apk": {
         "path": str(apk),
         "bytes": apk.stat().st_size,
