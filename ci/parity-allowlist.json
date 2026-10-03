@@ -54,12 +54,13 @@
     "openTopics": []
   },
   "u2l1": {
-    "status": "OPEN",
-    "reason": "English has one additional ecosystem energy/nutrient overview diagram; a reviewed Tamil counterpart or explicit consolidation decision is still required.",
+    "status": "ACCEPTED",
+    "reason": "Reviewed semantic consolidation: the single Tamil ecosystem SVG already covers both English views. Its caption explicitly includes sunlight as the energy input and producers, consumers and decomposers in nutrient recycling, so a second Tamil plate would duplicate the same teaching content.",
     "matchedTopics": [
       {
-        "topic": "energy flow and nutrient cycling",
+        "topic": "ecosystem energy entry, flow and nutrient recycling",
         "english": [
+          "fig_005_u02_en",
           "fig_006_u02_en"
         ],
         "tamil": [
@@ -67,19 +68,11 @@
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "ecosystem energy entry and nutrient recycling overview",
-        "english": [
-          "fig_005_u02_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
+    "openTopics": [],
+    "classification": "SEMANTIC_CONSOLIDATION",
     "extraEnglishFigure": "fig_005_u02_en",
-    "recommendation": "PRODUCE_TAMIL_COUNTERPART",
-    "recommendationReason": "The extra English figure contains embedded labels (Sun, Producers, Consumers, Decomposers) and presents a distinct introductory trophic-role schematic."
+    "recommendation": "ACCEPT_DIFFERENCE",
+    "recommendationReason": "The additional English overview is pedagogically redundant with the more comprehensive Tamil ecosystem SVG; no scientific concept is absent in Tamil."
   },
   "u2l2": {
     "status": "BALANCED",
@@ -130,13 +123,14 @@
     "openTopics": []
   },
   "u2l5": {
-    "status": "OPEN",
-    "reason": "English has one additional rainfall/runoff/infiltration diagram; topic consolidation against the two Tamil diagrams has not yet been approved.",
+    "status": "ACCEPTED",
+    "reason": "Reviewed semantic consolidation: the two Tamil hydrology SVGs jointly cover the three English views. The Tamil water-cycle caption explicitly includes runoff, infiltration, storage, evaporation and human use, while the recharge SVG covers watershed flow and groundwater recharge.",
     "matchedTopics": [
       {
-        "topic": "water cycle",
+        "topic": "water cycle and rainfall partition into runoff and infiltration",
         "english": [
-          "fig_013_u02_en"
+          "fig_013_u02_en",
+          "fig_014_u02_en"
         ],
         "tamil": [
           "sci_u02_l25_watercycle_ta"
@@ -152,19 +146,11 @@
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "rainfall partition into runoff infiltration and recharge",
-        "english": [
-          "fig_014_u02_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
+    "openTopics": [],
+    "classification": "SEMANTIC_CONSOLIDATION",
     "extraEnglishFigure": "fig_014_u02_en",
-    "recommendation": "PRODUCE_TAMIL_COUNTERPART",
-    "recommendationReason": "The extra English figure contains embedded hydrology labels (Vegetation slows runoff, Infiltration, Groundwater) and adds a distinct runoff/infiltration teaching view."
+    "recommendation": "ACCEPT_DIFFERENCE",
+    "recommendationReason": "The extra English runoff/infiltration plate does not introduce a concept missing from the Tamil hydrology diagrams."
   },
   "u2l6": {
     "status": "BALANCED",
@@ -370,12 +356,13 @@
     "openTopics": []
   },
   "u4l6": {
-    "status": "OPEN",
-    "reason": "English has the restored simplified waste-hierarchy diagram in addition to the two topic-matched diagrams; Tamil treatment of this extra diagram is unresolved.",
+    "status": "ACCEPTED",
+    "reason": "Reviewed semantic consolidation: fig_038_u04_en is a simplified reinforcement of the waste hierarchy already taught by fig_039_u04_en and the dedicated Tamil hierarchy SVG. Source segregation remains separately paired in both languages.",
     "matchedTopics": [
       {
-        "topic": "waste hierarchy",
+        "topic": "waste hierarchy from prevention to disposal",
         "english": [
+          "fig_038_u04_en",
           "fig_039_u04_en"
         ],
         "tamil": [
@@ -392,19 +379,11 @@
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "simplified waste hierarchy prevention to disposal",
-        "english": [
-          "fig_038_u04_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
+    "openTopics": [],
+    "classification": "SEMANTIC_CONSOLIDATION",
     "extraEnglishFigure": "fig_038_u04_en",
     "recommendation": "ACCEPT_DIFFERENCE",
-    "recommendationReason": "The English labels are not reusable as-is in Tamil, but the Tamil lesson already has a dedicated waste-hierarchy SVG; the extra English simplified hierarchy is pedagogically redundant."
+    "recommendationReason": "The simplified English hierarchy is redundant; the Tamil hierarchy SVG carries the same ordered prevention-to-disposal concept."
   },
   "u4l7": {
     "status": "BALANCED",
@@ -439,32 +418,25 @@
     "openTopics": []
   },
   "u5l1": {
-    "status": "OPEN",
-    "reason": "English has an additional simplified greenhouse-effect diagram beyond the bilingual SVG pair; Tamil treatment of the extra visual is unresolved.",
+    "status": "ACCEPTED",
+    "reason": "Reviewed semantic consolidation: the simplified English greenhouse-effect PNG reinforces the same mechanism already presented by the bilingual greenhouse-effect SVG pair. The Tamil SVG explicitly covers infrared emission, absorption and re-emission.",
     "matchedTopics": [
       {
-        "topic": "greenhouse effect infrared absorption and re-emission",
+        "topic": "greenhouse effect and infrared absorption/re-emission",
         "english": [
-          "sci_u05_l51_en"
+          "sci_u05_l51_en",
+          "fig_046_u05_en"
         ],
         "tamil": [
           "sci_u05_l51_ta"
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "simplified greenhouse effect",
-        "english": [
-          "fig_046_u05_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
+    "openTopics": [],
+    "classification": "SEMANTIC_CONSOLIDATION",
     "extraEnglishFigure": "fig_046_u05_en",
     "recommendation": "ACCEPT_DIFFERENCE",
-    "recommendationReason": "The English labels are not reusable as-is in Tamil, but the lesson already has an English/Tamil greenhouse-effect SVG pair; the extra English PNG is a simplified reinforcement diagram."
+    "recommendationReason": "The extra English PNG is a simplified reinforcement diagram and adds no scientific concept absent from the Tamil SVG."
   },
   "u5l2": {
     "status": "BALANCED",
