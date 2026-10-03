@@ -1888,6 +1888,9 @@ jobs:
           assert len(credits)==8,len(credits)
           assert {x["id"] for x in credits}==set(audit["creditIds"])
           assert all(x["modification"]=="resized and converted to WebP" for x in credits)
+          assert all(x["licenceTextUrl"].endswith("/legalcode") for x in credits)
+          assert audit["photoEntryCountRuntimeChecked"] is True,audit
+          assert audit["licenceTextUrlsUseLegalcode"] is True,audit
           print("V246_PHOTO_ATTRIBUTION_PASS")
           PYATTR
 

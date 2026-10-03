@@ -101,7 +101,7 @@ def make_u5l1(path):
     for start in range(0,360,12): d.arc((679,175,1242,738),start,start+6,fill=(145,177,165),width=10)
     d.line((286,215,746,377),fill=(225,169,49),width=11); d.text((620,230),"உள்வரும் சூரிய ஒளி",font=f(31),fill="black",anchor="mm")
     d.arc((876,15,1088,365),135,250,fill=(180,88,87),width=11); d.arc((1075,214,1374,510),220,70,fill=(180,88,87),width=11)
-    d.multiline_text((1130,63),"வெளியேறும் அகச்சிவப்புக்\nகதிர்வீச்சு",font=f(29),fill="black",anchor="mm",align="center",spacing=3); d.multiline_text((1370,270),"சிறிதளவு ஆற்றல்\nமீண்டும் திரும்புகிறது",font=f(29),fill="black",anchor="mm",align="center",spacing=3); d.text((800,767),"பசுமைக்குடில் வாயுக்கள் வெளியேறும் அகச்சிவப்பு ஆற்றலைப் பாதிக்கின்றன",font=f(29),fill="black",anchor="mm")
+    d.multiline_text((1270,72),"வெளியேறும்\nஅகச்சிவப்புக்\nகதிர்வீச்சு",font=f(28),fill="black",anchor="mm",align="center",spacing=2); d.multiline_text((1370,270),"சிறிதளவு ஆற்றல்\nமீண்டும் திரும்புகிறது",font=f(29),fill="black",anchor="mm",align="center",spacing=3); d.text((800,767),"பசுமைக்குடில் வாயுக்கள் வெளியேறும் அகச்சிவப்பு ஆற்றலைப் பாதிக்கின்றன",font=f(29),fill="black",anchor="mm")
     round_save(im,path)
 
 makers={"u2l1":make_u2l1,"u2l5":make_u2l5,"u4l6":make_u4l6,"u5l1":make_u5l1}
@@ -162,5 +162,13 @@ AUDIT.write_text(json.dumps({
     "packageIdentityChanged":False,
     "signingChanged":False,
     "versionIdentifiersChanged":False,
+    "greenhouseTamilOverlapCorrection":{
+        "figure":"fig_046_u05_ta",
+        "label":"வெளியேறும் அகச்சிவப்புக் கதிர்வீச்சு",
+        "oldAnchor":[1130,63],
+        "newAnchor":[1270,72],
+        "lineCount":3,
+        "purpose":"move label clear of the left outgoing-infrared arc"
+    },
 },ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
 print(AUDIT.read_text(encoding="utf-8"))

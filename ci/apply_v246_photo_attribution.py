@@ -35,6 +35,7 @@ for item in manifest:
         "sourceUrl": item["source_page"],
         "licence": item["license"],
         "licenceUrl": item["license_url"],
+        "licenceTextUrl": item["license_url"].rstrip("/") + "/legalcode",
         "modification": item["modification_notice"],
         "shareAlikeNotice": notice or "",
     })
@@ -53,7 +54,7 @@ kotlin = r'''package edu.gascnagercoil.environmentalsciences.ui
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -72,6 +73,7 @@ private data class PhotoCredit(
     val sourceUrl: String,
     val licence: String,
     val licenceUrl: String,
+    val licenceTextUrl: String,
     val modification: String,
     val shareAlikeNotice: String,
 )
@@ -92,7 +94,7 @@ internal fun LicencesScreen() {
         val raw = context.resources.openRawResource(R.raw.v246_photo_credits)
             .bufferedReader().use { it.readText() }
         val arr = JSONArray(raw)
-        (0 until arr.length()).map { index ->
+        val credits = (0 until arr.length()).map { index ->
             val item = arr.getJSONObject(index)
             PhotoCredit(
                 id = item.getString("id"),
@@ -101,10 +103,13 @@ internal fun LicencesScreen() {
                 sourceUrl = item.getString("sourceUrl"),
                 licence = item.getString("licence"),
                 licenceUrl = item.getString("licenceUrl"),
+                licenceTextUrl = item.getString("licenceTextUrl"),
                 modification = item.getString("modification"),
                 shareAlikeNotice = item.optString("shareAlikeNotice"),
             )
         }
+        check(credits.size == 8) { "Expected exactly 8 photograph licence entries" }
+        credits
     }
 
     LazyColumn(
@@ -133,17 +138,19 @@ internal fun LicencesScreen() {
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
-        items(photoCredits, key = { it.id }) { credit ->
+        itemsIndexed(photoCredits, key = { _, credit -> credit.id }) { index, credit ->
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    Text("Photograph ${index + 1} of 8", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Text(credit.title, fontWeight = FontWeight.SemiBold)
                     Text("Author: " + credit.author)
                     Text("Source URL: " + credit.sourceUrl, style = MaterialTheme.typography.bodySmall)
                     Text("Licence: " + credit.licence)
                     Text("Licence URL: " + credit.licenceUrl, style = MaterialTheme.typography.bodySmall)
+                    Text("Licence text URL: " + credit.licenceTextUrl, style = MaterialTheme.typography.bodySmall)
                     Text(credit.modification)
                     if (credit.shareAlikeNotice.isNotBlank()) {
                         Text(
@@ -156,7 +163,7 @@ internal fun LicencesScreen() {
                         TextButton(onClick = { uriHandler.openUri(credit.sourceUrl) }) {
                             Text("Source page")
                         }
-                        TextButton(onClick = { uriHandler.openUri(credit.licenceUrl) }) {
+                        TextButton(onClick = { uriHandler.openUri(credit.licenceTextUrl) }) {
                             Text("Licence text")
                         }
                     }
@@ -182,8 +189,11 @@ AUDIT.write_text(
         "photoCreditCount": len(credits),
         "creditIds": [x["id"] for x in credits],
         "licencesScreenReadsPackagedCredits": True,
+        "photoEntryUiContract": "Photograph {index+1} of 8",
+        "photoEntryCountRuntimeChecked": True,
         "sourceLinksClickable": True,
         "licenceTextLinksClickable": True,
+        "licenceTextUrlsUseLegalcode": all(x["licenceTextUrl"].endswith("/legalcode") for x in credits),
         "modificationNoticeExact": "resized and converted to WebP",
         "shareAlikeCreditIds": share_alike_ids,
         "shareAlikeNoticeCount": len(share_alike_ids),

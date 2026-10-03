@@ -49,6 +49,13 @@ def resource_file_path(kind: str, name: str):
 
 with zipfile.ZipFile(apk) as z:
     apk_entries = set(z.namelist())
+    assert "classes.dex" in apk_entries, "release APK classes.dex missing"
+    release_dex_bytes = z.read("classes.dex")
+    release_dex_sha256 = hashlib.sha256(release_dex_bytes).hexdigest()
+    assert release_dex_sha256 != "496b2331216f567cba53c95980d6c927eb2f97319304f8f78e1692f8bf930b84", (
+        "production classes.dex is still identical to Run #232; LicencesScreen code change did not reach release DEX",
+        release_dex_sha256,
+    )
     book_apk_path = resource_file_path("raw", "book_content")
     assert book_apk_path, "raw/book_content missing from release APK resources.arsc"
     assert book_apk_path in apk_entries, book_apk_path
@@ -205,6 +212,12 @@ def sha256_file(p: Path) -> str:
 
 report = {
     "scope": "built release artefact figure-resource integrity",
+    "releaseDex": {
+        "sha256": release_dex_sha256,
+        "run232PreviousSha256": "496b2331216f567cba53c95980d6c927eb2f97319304f8f78e1692f8bf930b84",
+        "changedFromRun232": release_dex_sha256 != "496b2331216f567cba53c95980d6c927eb2f97319304f8f78e1692f8bf930b84",
+        "reason": "LicencesScreen now renders and runtime-checks eight explicit photo licence entries with legalcode links"
+    },
     "expectedNamesSource": "packaged APK/AAB book_content.json",
     "packagedBookContent": {
         "apkResourcePath": book_apk_path,
