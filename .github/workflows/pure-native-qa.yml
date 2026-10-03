@@ -1594,6 +1594,96 @@ jobs:
             | base64 -d \
             | gzip -dc > ../../ci/v246_visual_atlas.py
           sha256sum ../../ci/v246_visual_atlas.py | tee V246_VISUAL_ATLAS_TRANSFORM_SHA256.txt
+
+          python - <<'PYPHOTO'
+          import hashlib
+          import io
+          import json
+          import time
+          import urllib.request
+          from pathlib import Path
+          from PIL import Image, ImageOps
+
+          manifest_path=Path("../../ci/v246_visual_photo_manifest.json")
+          manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
+          assert len(manifest)==8, len(manifest)
+
+          out_dir=Path("app/src/main/res/drawable-nodpi")
+          out_dir.mkdir(parents=True,exist_ok=True)
+          audit=[]
+
+          def fetch(url):
+              last=None
+              for attempt in range(1,4):
+                  try:
+                      req=urllib.request.Request(
+                          url,
+                          headers={
+                              "User-Agent":"EnvironmentalStudies-v2.4.6-visual-atlas/1.0 (educational CI; Wikimedia Commons source)"
+                          },
+                      )
+                      with urllib.request.urlopen(req,timeout=45) as r:
+                          data=r.read()
+                      if len(data) < 1024:
+                          raise RuntimeError(f"download too small: {len(data)} bytes")
+                      return data
+                  except Exception as exc:
+                      last=exc
+                      if attempt < 3:
+                          time.sleep(attempt*2)
+              raise last
+
+          for item in manifest:
+              source=fetch(item["url"])
+              source_sha=hashlib.sha256(source).hexdigest()
+              expected=item.get("expected_sha256")
+              if expected:
+                  assert source_sha==expected, (item["id"],source_sha,expected)
+
+              with Image.open(io.BytesIO(source)) as opened:
+                  opened.load()
+                  image=ImageOps.exif_transpose(opened)
+                  max_dimension=int(item.get("max_dimension",1200))
+                  image.thumbnail((max_dimension,max_dimension),Image.Resampling.LANCZOS)
+                  if image.mode not in ("RGB","RGBA"):
+                      image=image.convert("RGBA" if "A" in image.getbands() else "RGB")
+                  output=out_dir/(item["id"]+item.get("output_ext",".webp"))
+                  image.save(
+                      output,
+                      format="WEBP",
+                      quality=int(item.get("webp_quality",82)),
+                      method=6,
+                  )
+
+              output_bytes=output.read_bytes()
+              assert len(output_bytes) > 1024, (item["id"],len(output_bytes))
+              output_sha=hashlib.sha256(output_bytes).hexdigest()
+              audit.append({
+                  "id":item["id"],
+                  "sourceUrl":item["url"],
+                  "sourcePage":item["source_page"],
+                  "author":item["author"],
+                  "license":item["license"],
+                  "sourceSha256":source_sha,
+                  "expectedSourceSha256":expected,
+                  "output":str(output),
+                  "outputBytes":len(output_bytes),
+                  "outputSha256":output_sha,
+              })
+
+          report={
+              "status":"PASS",
+              "count":len(audit),
+              "unpinnedSourceHashes":sum(1 for x in audit if not x["expectedSourceSha256"]),
+              "photos":audit,
+          }
+          Path("V246_VISUAL_PHOTO_AUDIT.json").write_text(
+              json.dumps(report,ensure_ascii=False,indent=2)+"\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PYPHOTO
+
           python -m py_compile ../../ci/v246_visual_atlas.py
           python ../../ci/v246_visual_atlas.py
 
