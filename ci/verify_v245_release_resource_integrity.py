@@ -88,9 +88,10 @@ v246_svg = sorted(x for x in svg if x.startswith("sci_v246_"))
 if v246_png or v246_svg:
     assert len(v246_png) == 8, len(v246_png)
     assert len(v246_svg) == 112, len(v246_svg)
-    assert len(png) == 39, len(png)
+    assert len(png) == 43, len(png)
+    assert len(legacy_png) == 35, len(legacy_png)
     assert len(svg) == 177, len(svg)
-    assert len(refs) == 216, len(refs)
+    assert len(refs) == 220, len(refs)
 
 apk_missing_table = []
 apk_missing_file = []

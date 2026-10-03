@@ -54,33 +54,22 @@
     "openTopics": []
   },
   "u2l1": {
-    "status": "OPEN",
-    "reason": "English has one additional ecosystem energy/nutrient overview diagram. The nearest Tamil ecosystem SVG covers the same broad mechanism, but semantic consolidation remains OPEN pending the user's decision.",
+    "status": "BALANCED",
+    "reason": "User approved a dedicated Tamil counterpart for the additional English ecosystem overview figure.",
     "matchedTopics": [
       {
         "topic": "energy flow and nutrient cycling",
         "english": [
+          "fig_005_u02_en",
           "fig_006_u02_en"
         ],
         "tamil": [
+          "fig_005_u02_ta",
           "sci_u02_l21_ecosystem_ta"
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "ecosystem energy entry and nutrient recycling overview",
-        "english": [
-          "fig_005_u02_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
-    "extraEnglishFigure": "fig_005_u02_en",
-    "nearestTamilFigure": "sci_u02_l21_ecosystem_ta",
-    "recommendation": "USER_DECISION_REQUIRED",
-    "recommendationReason": "Keep OPEN; do not auto-close or remove the extra English figure without the user's decision."
+    "openTopics": []
   },
   "u2l2": {
     "status": "BALANCED",
@@ -131,8 +120,8 @@
     "openTopics": []
   },
   "u2l5": {
-    "status": "OPEN",
-    "reason": "English has one additional rainfall/runoff/infiltration diagram. The nearest Tamil water-cycle/recharge plates overlap semantically, but consolidation remains OPEN pending the user's decision.",
+    "status": "BALANCED",
+    "reason": "User approved a dedicated Tamil counterpart for the additional English rainfall/runoff/infiltration figure.",
     "matchedTopics": [
       {
         "topic": "water cycle",
@@ -144,29 +133,18 @@
         ]
       },
       {
-        "topic": "watershed and groundwater recharge",
+        "topic": "rainfall partition, watershed and groundwater recharge",
         "english": [
+          "fig_014_u02_en",
           "fig_015_u02_en"
         ],
         "tamil": [
+          "fig_014_u02_ta",
           "sci_u02_l25_recharge_ta"
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "rainfall partition into runoff infiltration and recharge",
-        "english": [
-          "fig_014_u02_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
-    "extraEnglishFigure": "fig_014_u02_en",
-    "nearestTamilFigure": "sci_u02_l25_recharge_ta",
-    "recommendation": "USER_DECISION_REQUIRED",
-    "recommendationReason": "Keep OPEN; do not auto-close or remove the extra English figure without the user's decision."
+    "openTopics": []
   },
   "u2l6": {
     "status": "BALANCED",
@@ -372,15 +350,17 @@
     "openTopics": []
   },
   "u4l6": {
-    "status": "OPEN",
-    "reason": "English retains a simplified waste-hierarchy diagram in addition to the matched hierarchy and segregation diagrams. Whether that reinforcement is redundant remains OPEN pending the user's decision.",
+    "status": "BALANCED",
+    "reason": "User approved a dedicated Tamil counterpart for the simplified English waste-hierarchy figure.",
     "matchedTopics": [
       {
         "topic": "waste hierarchy",
         "english": [
+          "fig_038_u04_en",
           "fig_039_u04_en"
         ],
         "tamil": [
+          "fig_038_u04_ta",
           "sci_u04_l46_hierarchy_ta"
         ]
       },
@@ -394,20 +374,7 @@
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "simplified waste hierarchy prevention to disposal",
-        "english": [
-          "fig_038_u04_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
-    "extraEnglishFigure": "fig_038_u04_en",
-    "nearestTamilFigure": "sci_u04_l46_hierarchy_ta",
-    "recommendation": "USER_DECISION_REQUIRED",
-    "recommendationReason": "Keep OPEN; do not auto-close or remove the extra English figure without the user's decision."
+    "openTopics": []
   },
   "u4l7": {
     "status": "BALANCED",
@@ -442,33 +409,22 @@
     "openTopics": []
   },
   "u5l1": {
-    "status": "OPEN",
-    "reason": "English retains an additional simplified greenhouse-effect diagram beyond the bilingual SVG pair. Whether it is pedagogically redundant remains OPEN pending the user's decision.",
+    "status": "BALANCED",
+    "reason": "User approved a dedicated Tamil counterpart for the simplified English greenhouse-effect figure.",
     "matchedTopics": [
       {
         "topic": "greenhouse effect infrared absorption and re-emission",
         "english": [
+          "fig_046_u05_en",
           "sci_u05_l51_en"
         ],
         "tamil": [
+          "fig_046_u05_ta",
           "sci_u05_l51_ta"
         ]
       }
     ],
-    "openTopics": [
-      {
-        "topic": "simplified greenhouse effect",
-        "english": [
-          "fig_046_u05_en"
-        ],
-        "tamil": []
-      }
-    ],
-    "classification": "LABEL_SPECIFIC",
-    "extraEnglishFigure": "fig_046_u05_en",
-    "nearestTamilFigure": "sci_u05_l51_ta",
-    "recommendation": "USER_DECISION_REQUIRED",
-    "recommendationReason": "Keep OPEN; do not auto-close or remove the extra English figure without the user's decision."
+    "openTopics": []
   },
   "u5l2": {
     "status": "BALANCED",
