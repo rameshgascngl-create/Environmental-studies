@@ -57,9 +57,12 @@ visual = visual.replace(old_card, new_card, 1)
 
 old_home = 'item { VisualHighlights(language) }'
 new_home = '''item {
-            VisualHighlights(language) { unitNumber, lessonId ->
-                navigate("lesson:$unitNumber:$lessonId")
-            }
+            VisualHighlights(
+                mode = language,
+                onOpen = { unitNumber, lessonId ->
+                    navigate("lesson:$unitNumber:$lessonId")
+                },
+            )
         }'''
 assert old_home in home, "Home VisualHighlights call anchor missing"
 home = home.replace(old_home, new_home, 1)
@@ -82,6 +85,7 @@ checks = {
     "whole_card_clickable": '.clickable { onOpen(item.unitNumber, item.lessonId) }' in visual_after,
     "visual_items_have_lesson_ids": all(lesson_id in visual_after for lesson_id in ("u5l1", "u3l1", "u4l1", "u6l4")),
     "home_routes_visual_cards_to_lessons": 'navigate("lesson:$unitNumber:$lessonId")' in home_after,
+    "home_passes_named_on_open_callback": 'onOpen = { unitNumber, lessonId ->' in home_after,
     "callback_is_typed": 'onOpen: (Int, String) -> Unit' in visual_after,
     "book_content_unchanged": sha256(BOOK) == EXPECTED_BOOK_SHA256,
     "version_identifiers_unchanged": 'versionCode = 20405' in gradle and 'versionName = "2.4.5"' in gradle,
