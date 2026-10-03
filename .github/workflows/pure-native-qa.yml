@@ -2751,34 +2751,34 @@ jobs:
             trap restore_baseline_manifest EXIT
 
             python - <<'PYPROFILE'
-            from pathlib import Path
-            import xml.etree.ElementTree as ET
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
 
-            path = Path("app/src/main/AndroidManifest.xml")
-            tree = ET.parse(path)
-            root = tree.getroot()
-            android = "{http://schemas.android.com/apk/res/android}"
-            tools = "{http://schemas.android.com/tools}"
-            app = root.find("application")
-            assert app is not None, "application element missing"
+          path = Path("app/src/main/AndroidManifest.xml")
+          tree = ET.parse(path)
+          root = tree.getroot()
+          android = "{http://schemas.android.com/apk/res/android}"
+          tools = "{http://schemas.android.com/tools}"
+          app = root.find("application")
+          assert app is not None, "application element missing"
 
-            removed = 0
-            for receiver in list(app.findall("receiver")):
-                if (
-                    receiver.get(android + "name") == "androidx.profileinstaller.ProfileInstallReceiver"
-                    and receiver.get(tools + "node") == "remove"
-                ):
-                    app.remove(receiver)
-                    removed += 1
+          removed = 0
+          for receiver in list(app.findall("receiver")):
+              if (
+                  receiver.get(android + "name") == "androidx.profileinstaller.ProfileInstallReceiver"
+                  and receiver.get(tools + "node") == "remove"
+              ):
+                  app.remove(receiver)
+                  removed += 1
 
-            assert removed == 1, (
-                "Expected exactly one app-level ProfileInstallReceiver tools:node=remove marker; "
-                f"found {removed}"
-            )
-            ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
-            ET.register_namespace("tools", "http://schemas.android.com/tools")
-            tree.write(path, encoding="utf-8", xml_declaration=True)
-            PYPROFILE
+          assert removed == 1, (
+              "Expected exactly one app-level ProfileInstallReceiver tools:node=remove marker; "
+              f"found {removed}"
+          )
+          ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
+          ET.register_namespace("tools", "http://schemas.android.com/tools")
+          tree.write(path, encoding="utf-8", xml_declaration=True)
+          PYPROFILE
 
             ENVSTUDIES_KEYSTORE_PATH="$KEYSTORE" gradle --no-daemon :app:generateBaselineProfile \
               -PPRIVACY_POLICY_URL="$PRIVACY_URL" --stacktrace
@@ -2792,6 +2792,7 @@ jobs:
           fi
           BASH
           chmod 700 "$RUNNER_TEMP/v245-androidsvg-emulator.sh"
+          bash -n "$RUNNER_TEMP/v245-androidsvg-emulator.sh"
 
       - name: Render every Tamil SVG through AndroidSVG on emulator
         if: env.RELEASEQA_MODE != 'dex_audit'
